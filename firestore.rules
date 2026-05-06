@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid));
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userDoc(request.auth.uid).data.role == 'admin';
+    }
+
+    function sameCompany(companyId) {
+      return isSignedIn() && userDoc(request.auth.uid).data.companyId == companyId;
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if isAdmin() && request.resource.data.companyId is string;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /companies/{companyId}/reservations/{reservationId} {
+      allow read: if sameCompany(companyId);
+      allow create: if sameCompany(companyId)
+        && request.resource.data.companyId == companyId
+        && request.resource.data.peopleCount is int
+        && request.resource.data.peopleCount > 0
+        && request.resource.data.name is string
+        && request.resource.data.date is string
+        && request.resource.data.time is string;
+      allow update: if sameCompany(companyId);
+      allow delete: if isAdmin() && sameCompany(companyId);
+    }
+  }
+}

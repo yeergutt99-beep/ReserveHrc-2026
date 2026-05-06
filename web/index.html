@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ReserveHrc</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>ReserveHrc</h1>
+
+      <section id="loginSection" class="card">
+        <h2>Login</h2>
+        <input id="email" type="email" placeholder="Email" />
+        <input id="password" type="password" placeholder="Password" />
+        <button id="loginBtn">Ingresar</button>
+      </section>
+
+      <section id="appSection" class="hidden">
+        <div class="card">
+          <h2>Listado de Reservas</h2>
+          <label>Filtrar por fecha</label>
+          <input id="filterDate" type="date" />
+          <button id="loadReservationsBtn">Actualizar</button>
+          <ul id="reservationsList"></ul>
+        </div>
+
+        <div class="card">
+          <h2>Agregar Reserva</h2>
+          <input id="resName" placeholder="Nombre" />
+          <input id="resPeople" type="number" min="1" placeholder="Cantidad de personas" />
+          <input id="resDate" type="date" />
+          <input id="resTime" type="time" />
+          <textarea id="resComments" placeholder="Comentarios"></textarea>
+          <button id="createReservationBtn">Guardar</button>
+        </div>
+
+        <div class="card" id="adminSection">
+          <h2>Panel Admin - Crear Usuario</h2>
+          <input id="newUserEmail" type="email" placeholder="Email" />
+          <input id="newUserPassword" type="password" placeholder="Password temporal" />
+          <input id="newUserName" placeholder="Nombre" />
+          <select id="newUserRole">
+            <option value="user">Usuario</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button id="createUserBtn">Crear usuario</button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
