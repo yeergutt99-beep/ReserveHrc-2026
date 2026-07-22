@@ -4,6 +4,10 @@
   "private": true,
   "engines": { "node": "20" },
   "main": "index.js",
+  "scripts": {
+    "check": "node --check index.js && node --check reservation-time.js",
+    "test": "node --test test/*.test.js"
+  },
   "dependencies": {
     "firebase-admin": "^12.1.1",
     "firebase-functions": "^5.0.1",

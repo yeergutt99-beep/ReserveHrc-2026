@@ -17,6 +17,22 @@ service cloud.firestore {
       return isSignedIn() && userDoc(request.auth.uid).data.companyId == companyId;
     }
 
+    function validReservation(data, companyId) {
+      return data.companyId == companyId
+        && data.peopleCount is int
+        && data.peopleCount > 0
+        && data.peopleCount <= 500
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 120
+        && data.date is string
+        && data.time is string
+        && (!('contact' in data) || data.contact is string)
+        && (!('comments' in data) || data.comments is string)
+        && (!('source' in data) || data.source is string)
+        && (!('expiresAt' in data) || data.expiresAt is timestamp);
+    }
+
     match /users/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
       allow create: if isAdmin() && request.resource.data.companyId is string;
@@ -27,13 +43,9 @@ service cloud.firestore {
     match /companies/{companyId}/reservations/{reservationId} {
       allow read: if sameCompany(companyId);
       allow create: if sameCompany(companyId)
-        && request.resource.data.companyId == companyId
-        && request.resource.data.peopleCount is int
-        && request.resource.data.peopleCount > 0
-        && request.resource.data.name is string
-        && request.resource.data.date is string
-        && request.resource.data.time is string;
-      allow update: if sameCompany(companyId);
+        && validReservation(request.resource.data, companyId);
+      allow update: if sameCompany(companyId)
+        && validReservation(request.resource.data, companyId);
       allow delete: if isAdmin() && sameCompany(companyId);
     }
   }
