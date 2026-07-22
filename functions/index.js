@@ -3,12 +3,18 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
+const {
+  RESERVATION_TIME_ZONE,
+  dateStringInTimeZone,
+  expirationForReservation,
+  isReservationExpired
+} = require('./reservation-time');
 
 admin.initializeApp();
 const db = admin.firestore();
 
 function toDateString(date) {
-  return date.toISOString().slice(0, 10);
+  return dateStringInTimeZone(date);
 }
 
 async function getUserContext(uid) {
@@ -109,6 +115,59 @@ exports.sendDailyReservationsDigest = onSchedule(
     logger.info('Resumen diario enviado.', {
       reservations: todayReservations.length,
       alerts: largeReservations.length
+    });
+  }
+);
+
+exports.cleanupExpiredReservations = onSchedule(
+  { schedule: 'every 60 minutes', timeZone: RESERVATION_TIME_ZONE },
+  async () => {
+    const now = new Date();
+    const localDate = dateStringInTimeZone(now);
+    const snapshot = await db
+      .collectionGroup('reservations')
+      .where('date', '<=', localDate)
+      .get();
+
+    let batch = db.batch();
+    let pendingWrites = 0;
+    let deletedReservations = 0;
+    let invalidReservations = 0;
+
+    for (const reservationDocument of snapshot.docs) {
+      const reservation = reservationDocument.data();
+      const expiration = expirationForReservation(reservation);
+
+      if (!expiration) {
+        invalidReservations += 1;
+        logger.warn('Reserva omitida de la limpieza por fecha u hora inválida.', {
+          path: reservationDocument.ref.path,
+          date: reservation.date,
+          time: reservation.time
+        });
+        continue;
+      }
+
+      if (!isReservationExpired(reservation, now)) continue;
+
+      batch.delete(reservationDocument.ref);
+      pendingWrites += 1;
+      deletedReservations += 1;
+
+      if (pendingWrites === 450) {
+        await batch.commit();
+        batch = db.batch();
+        pendingWrites = 0;
+      }
+    }
+
+    if (pendingWrites > 0) await batch.commit();
+
+    logger.info('Limpieza automática de reservas completada.', {
+      checkedReservations: snapshot.size,
+      deletedReservations,
+      invalidReservations,
+      cutoff: now.toISOString()
     });
   }
 );

@@ -1,54 +1,257 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ReserveHrc</title>
-    <link rel="stylesheet" href="styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#08090c">
+    <title>Reservas | Hard Rock Cafe Ushuaia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600&display=swap"
+      rel="stylesheet"
+    >
+    <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <main class="container">
-      <h1>ReserveHrc</h1>
+    <div class="background-glow background-glow--red"></div>
+    <div class="background-glow background-glow--gold"></div>
 
-      <section id="loginSection" class="card">
-        <h2>Login</h2>
-        <input id="email" type="email" placeholder="Email" />
-        <input id="password" type="password" placeholder="Password" />
-        <button id="loginBtn">Ingresar</button>
+    <div id="loginView" class="login-shell">
+      <section class="login-card" aria-labelledby="loginTitle">
+        <div class="brand brand--login">
+          <span class="brand-logo" aria-hidden="true">HR</span>
+          <div>
+            <p class="eyebrow">Hard Rock Cafe Ushuaia</p>
+            <h1 id="loginTitle">Reservas</h1>
+          </div>
+        </div>
+
+        <p class="login-copy">Ingresá para administrar las reservas del restaurante.</p>
+
+        <form id="loginForm" class="stack-form">
+          <label class="field">
+            <span>Correo electrónico</span>
+            <input id="email" type="email" autocomplete="username" placeholder="nombre@correo.com" required>
+          </label>
+          <label class="field">
+            <span>Contraseña</span>
+            <input id="password" type="password" autocomplete="current-password" placeholder="Tu contraseña" required>
+          </label>
+          <p id="loginError" class="form-message form-message--error hidden" role="alert"></p>
+          <button id="loginBtn" class="button button--primary button--large" type="submit">
+            Ingresar
+          </button>
+        </form>
       </section>
+    </div>
 
-      <section id="appSection" class="hidden">
-        <div class="card">
-          <h2>Listado de Reservas</h2>
-          <label>Filtrar por fecha</label>
-          <input id="filterDate" type="date" />
-          <button id="loadReservationsBtn">Actualizar</button>
-          <ul id="reservationsList"></ul>
+    <div id="appView" class="app-shell hidden">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-logo" aria-hidden="true">HR</span>
+          <div>
+            <p class="eyebrow">Hard Rock Cafe Ushuaia</p>
+            <p class="brand-title">Gestión de reservas</p>
+          </div>
         </div>
 
-        <div class="card">
-          <h2>Agregar Reserva</h2>
-          <input id="resName" placeholder="Nombre" />
-          <input id="resPeople" type="number" min="1" placeholder="Cantidad de personas" />
-          <input id="resDate" type="date" />
-          <input id="resTime" type="time" />
-          <textarea id="resComments" placeholder="Comentarios"></textarea>
-          <button id="createReservationBtn">Guardar</button>
+        <div class="user-menu">
+          <div class="user-meta">
+            <strong id="userName">Usuario</strong>
+            <span id="userRole">Equipo</span>
+          </div>
+          <button id="logoutBtn" class="button button--ghost button--compact" type="button">Salir</button>
         </div>
+      </header>
 
-        <div class="card" id="adminSection">
-          <h2>Panel Admin - Crear Usuario</h2>
-          <input id="newUserEmail" type="email" placeholder="Email" />
-          <input id="newUserPassword" type="password" placeholder="Password temporal" />
-          <input id="newUserName" placeholder="Nombre" />
-          <select id="newUserRole">
-            <option value="user">Usuario</option>
-            <option value="admin">Admin</option>
-          </select>
-          <button id="createUserBtn">Crear usuario</button>
-        </div>
+      <main class="content">
+        <section class="page-heading">
+          <div>
+            <p id="todayLabel" class="eyebrow"></p>
+            <h1>Reservas</h1>
+            <p class="page-copy">Organizá el servicio de hoy y las próximas fechas desde un solo lugar.</p>
+          </div>
+          <button id="newReservationBtn" class="button button--primary" type="button">
+            <span aria-hidden="true">＋</span> Nueva reserva
+          </button>
+        </section>
+
+        <section class="stats-grid" aria-label="Resumen de reservas">
+          <article class="stat-card">
+            <span class="stat-label">Reservas visibles</span>
+            <strong id="reservationCount" class="stat-value">0</strong>
+            <span class="stat-detail">grupos</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Personas</span>
+            <strong id="peopleCount" class="stat-value">0</strong>
+            <span class="stat-detail">cubiertos reservados</span>
+          </article>
+          <article class="stat-card stat-card--warning">
+            <span class="stat-label">Grupos grandes</span>
+            <strong id="largeGroupCount" class="stat-value">0</strong>
+            <span class="stat-detail">más de 15 personas</span>
+          </article>
+        </section>
+
+        <section class="panel reservations-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Agenda</h2>
+              <p id="resultSummary" class="panel-copy">Cargando reservas…</p>
+            </div>
+
+            <div class="date-navigation" role="group" aria-label="Navegación por fecha">
+              <button id="previousDayBtn" class="icon-button" type="button" aria-label="Día anterior">‹</button>
+              <input id="filterDate" type="date" aria-label="Filtrar por fecha">
+              <button id="nextDayBtn" class="icon-button" type="button" aria-label="Día siguiente">›</button>
+              <button id="todayBtn" class="button button--secondary button--compact" type="button">Hoy</button>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <label class="search-field">
+              <span aria-hidden="true">⌕</span>
+              <input id="searchInput" type="search" placeholder="Buscar por nombre, teléfono u observación">
+            </label>
+            <button id="clearDateBtn" class="button button--ghost button--compact" type="button">Ver próximas</button>
+          </div>
+
+          <div id="loadingState" class="state-box">
+            <span class="spinner" aria-hidden="true"></span>
+            <p>Cargando reservas…</p>
+          </div>
+
+          <div id="emptyState" class="state-box hidden">
+            <span class="state-icon" aria-hidden="true">✓</span>
+            <h3>No hay reservas para mostrar</h3>
+            <p>Probá otra fecha o creá una reserva nueva.</p>
+          </div>
+
+          <div id="reservationsTableWrap" class="table-wrap hidden">
+            <table>
+              <thead>
+                <tr>
+                  <th>Horario</th>
+                  <th>Reserva</th>
+                  <th>Personas</th>
+                  <th>Contacto</th>
+                  <th>Observaciones</th>
+                  <th>Origen</th>
+                  <th class="actions-column">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="reservationsBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="adminSection" class="panel admin-panel hidden">
+          <details>
+            <summary>
+              <span>
+                <strong>Administración de usuarios</strong>
+                <small>Crear accesos para el equipo</small>
+              </span>
+              <span aria-hidden="true">＋</span>
+            </summary>
+            <form id="createUserForm" class="admin-form">
+              <label class="field">
+                <span>Nombre</span>
+                <input id="newUserName" type="text" required>
+              </label>
+              <label class="field">
+                <span>Correo</span>
+                <input id="newUserEmail" type="email" required>
+              </label>
+              <label class="field">
+                <span>Contraseña temporal</span>
+                <input id="newUserPassword" type="password" minlength="6" required>
+              </label>
+              <label class="field">
+                <span>Rol</span>
+                <select id="newUserRole">
+                  <option value="user">Usuario</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </label>
+              <button id="createUserBtn" class="button button--secondary" type="submit">Crear usuario</button>
+            </form>
+          </details>
+        </section>
+      </main>
+    </div>
+
+    <div id="reservationModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="reservationModalTitle">
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-card">
+        <header class="modal-header">
+          <div>
+            <p id="reservationModalEyebrow" class="eyebrow">Nueva reserva</p>
+            <h2 id="reservationModalTitle">Agregar a la agenda</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal aria-label="Cerrar">×</button>
+        </header>
+
+        <form id="reservationForm" class="reservation-form">
+          <div class="form-grid">
+            <label class="field field--wide">
+              <span>Nombre de la reserva *</span>
+              <input id="resName" type="text" maxlength="120" autocomplete="off" required>
+            </label>
+            <label class="field">
+              <span>Fecha *</span>
+              <input id="resDate" type="date" required>
+            </label>
+            <label class="field">
+              <span>Hora *</span>
+              <input id="resTime" type="time" required>
+            </label>
+            <label class="field">
+              <span>Cantidad de personas *</span>
+              <input id="resPeople" type="number" min="1" max="500" inputmode="numeric" required>
+            </label>
+            <label class="field">
+              <span>Teléfono o contacto</span>
+              <input id="resContact" type="text" maxlength="100" autocomplete="off">
+            </label>
+            <label class="field field--wide">
+              <span>Observaciones</span>
+              <textarea id="resComments" rows="4" maxlength="800"></textarea>
+            </label>
+          </div>
+
+          <p id="reservationError" class="form-message form-message--error hidden" role="alert"></p>
+
+          <footer class="modal-actions">
+            <button class="button button--ghost" type="button" data-close-modal>Cancelar</button>
+            <button id="saveReservationBtn" class="button button--primary" type="submit">Guardar reserva</button>
+          </footer>
+        </form>
       </section>
-    </main>
+    </div>
+
+    <div id="deleteModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+      <div class="modal-backdrop" data-close-delete></div>
+      <section class="modal-card modal-card--small">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow eyebrow--danger">Eliminar reserva</p>
+            <h2 id="deleteModalTitle">¿Confirmás la eliminación?</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-delete aria-label="Cerrar">×</button>
+        </header>
+        <p id="deleteMessage" class="delete-copy"></p>
+        <p class="delete-warning">Esta acción no se puede deshacer.</p>
+        <footer class="modal-actions">
+          <button class="button button--ghost" type="button" data-close-delete>Cancelar</button>
+          <button id="confirmDeleteBtn" class="button button--danger" type="button">Sí, eliminar</button>
+        </footer>
+      </section>
+    </div>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script type="module" src="main.js"></script>
   </body>
