@@ -6,6 +6,10 @@ Panel de reservas de Hard Rock Cafe Ushuaia construido con Firebase Authenticati
 
 - Acceso del equipo con Firebase Authentication.
 - Agenda en tiempo real sobre `companies/{companyId}/reservations`.
+- Panel de shows consumido directamente por Sofía.
+- Panel de alertas humanas con estados Pendiente, En atención y Resuelta.
+- Botón administrativo para apagar o encender globalmente a Sofía.
+- Correo inmediato de derivación y un único recordatorio al superar 24 horas pendiente.
 - Alta y edición de reservas.
 - Eliminación manual disponible para administradores, con confirmación.
 - Búsqueda por nombre, contacto u observaciones.
@@ -14,6 +18,10 @@ Panel de reservas de Hard Rock Cafe Ushuaia construido con Firebase Authenticati
 - Creación de usuarios desde el panel de administración.
 - Resumen diario por correo.
 - Limpieza automática cada hora: elimina una reserva cuando ya pasaron 24 horas desde su fecha y hora.
+
+Las alertas humanas son independientes del resumen diario de reservas de las 15:00. Usan las
+mismas variables SMTP. Opcionalmente, `HUMAN_ALERT_TO` permite configurar destinatarios
+separados por comas y `ALERT_COMPANY_IDS` define las empresas revisadas por el recordatorio.
 
 ## Modelo de reserva
 
