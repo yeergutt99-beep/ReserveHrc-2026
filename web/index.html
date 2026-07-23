@@ -52,7 +52,7 @@
           <span class="brand-logo" aria-hidden="true">HR</span>
           <div>
             <p class="eyebrow">Hard Rock Cafe Ushuaia</p>
-            <p class="brand-title">Gestión de reservas</p>
+            <p class="brand-title">Centro operativo</p>
           </div>
         </div>
 
@@ -66,121 +66,149 @@
       </header>
 
       <main class="content">
-        <section class="page-heading">
-          <div>
-            <p id="todayLabel" class="eyebrow"></p>
-            <h1>Reservas</h1>
-            <p class="page-copy">Organizá el servicio de hoy y las próximas fechas desde un solo lugar.</p>
-          </div>
-          <button id="newReservationBtn" class="button button--primary" type="button">
-            <span aria-hidden="true">＋</span> Nueva reserva
+        <nav class="workspace-nav" aria-label="Secciones operativas">
+          <button class="workspace-tab is-active" type="button" data-view="reservations">Reservas</button>
+          <button class="workspace-tab" type="button" data-view="shows">Shows</button>
+          <button class="workspace-tab" type="button" data-view="alerts">
+            Alertas <span id="alertNavCount" class="nav-count hidden">0</span>
           </button>
-        </section>
+        </nav>
 
-        <section class="stats-grid" aria-label="Resumen de reservas">
-          <article class="stat-card">
-            <span class="stat-label">Reservas visibles</span>
-            <strong id="reservationCount" class="stat-value">0</strong>
-            <span class="stat-detail">grupos</span>
-          </article>
-          <article class="stat-card">
-            <span class="stat-label">Personas</span>
-            <strong id="peopleCount" class="stat-value">0</strong>
-            <span class="stat-detail">cubiertos reservados</span>
-          </article>
-          <article class="stat-card stat-card--warning">
-            <span class="stat-label">Grupos grandes</span>
-            <strong id="largeGroupCount" class="stat-value">0</strong>
-            <span class="stat-detail">más de 15 personas</span>
-          </article>
-        </section>
-
-        <section class="panel reservations-panel">
-          <div class="panel-header">
+        <div id="viewReservations" class="workspace-view">
+          <section class="page-heading">
             <div>
-              <h2>Agenda</h2>
-              <p id="resultSummary" class="panel-copy">Cargando reservas…</p>
+              <p id="todayLabel" class="eyebrow"></p>
+              <h1>Reservas</h1>
+              <p class="page-copy">Organizá el servicio de hoy y las próximas fechas desde un solo lugar.</p>
             </div>
+            <button id="newReservationBtn" class="button button--primary" type="button">
+              <span aria-hidden="true">＋</span> Nueva reserva
+            </button>
+          </section>
 
-            <div class="date-navigation" role="group" aria-label="Navegación por fecha">
-              <button id="previousDayBtn" class="icon-button" type="button" aria-label="Día anterior">‹</button>
-              <input id="filterDate" type="date" aria-label="Filtrar por fecha">
-              <button id="nextDayBtn" class="icon-button" type="button" aria-label="Día siguiente">›</button>
-              <button id="todayBtn" class="button button--secondary button--compact" type="button">Hoy</button>
+          <section class="stats-grid" aria-label="Resumen de reservas">
+            <article class="stat-card">
+              <span class="stat-label">Reservas visibles</span>
+              <strong id="reservationCount" class="stat-value">0</strong>
+              <span class="stat-detail">grupos</span>
+            </article>
+            <article class="stat-card">
+              <span class="stat-label">Personas</span>
+              <strong id="peopleCount" class="stat-value">0</strong>
+              <span class="stat-detail">cubiertos reservados</span>
+            </article>
+            <article class="stat-card stat-card--warning">
+              <span class="stat-label">Grupos grandes</span>
+              <strong id="largeGroupCount" class="stat-value">0</strong>
+              <span class="stat-detail">más de 15 personas</span>
+            </article>
+          </section>
+
+          <section class="panel reservations-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Agenda</h2>
+                <p id="resultSummary" class="panel-copy">Cargando reservas…</p>
+              </div>
+              <div class="date-navigation" role="group" aria-label="Navegación por fecha">
+                <button id="previousDayBtn" class="icon-button" type="button" aria-label="Día anterior">‹</button>
+                <input id="filterDate" type="date" aria-label="Filtrar por fecha">
+                <button id="nextDayBtn" class="icon-button" type="button" aria-label="Día siguiente">›</button>
+                <button id="todayBtn" class="button button--secondary button--compact" type="button">Hoy</button>
+              </div>
             </div>
-          </div>
-
-          <div class="toolbar">
-            <label class="search-field">
-              <span aria-hidden="true">⌕</span>
-              <input id="searchInput" type="search" placeholder="Buscar por nombre, teléfono u observación">
-            </label>
-            <button id="clearDateBtn" class="button button--ghost button--compact" type="button">Ver próximas</button>
-          </div>
-
-          <div id="loadingState" class="state-box">
-            <span class="spinner" aria-hidden="true"></span>
-            <p>Cargando reservas…</p>
-          </div>
-
-          <div id="emptyState" class="state-box hidden">
-            <span class="state-icon" aria-hidden="true">✓</span>
-            <h3>No hay reservas para mostrar</h3>
-            <p>Probá otra fecha o creá una reserva nueva.</p>
-          </div>
-
-          <div id="reservationsTableWrap" class="table-wrap hidden">
-            <table>
-              <thead>
-                <tr>
-                  <th>Horario</th>
-                  <th>Reserva</th>
-                  <th>Personas</th>
-                  <th>Contacto</th>
-                  <th>Observaciones</th>
-                  <th>Origen</th>
-                  <th class="actions-column">Acciones</th>
-                </tr>
-              </thead>
-              <tbody id="reservationsBody"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section id="adminSection" class="panel admin-panel hidden">
-          <details>
-            <summary>
-              <span>
-                <strong>Administración de usuarios</strong>
-                <small>Crear accesos para el equipo</small>
-              </span>
-              <span aria-hidden="true">＋</span>
-            </summary>
-            <form id="createUserForm" class="admin-form">
-              <label class="field">
-                <span>Nombre</span>
-                <input id="newUserName" type="text" required>
+            <div class="toolbar">
+              <label class="search-field">
+                <span aria-hidden="true">⌕</span>
+                <input id="searchInput" type="search" placeholder="Buscar por nombre, teléfono u observación">
               </label>
-              <label class="field">
-                <span>Correo</span>
-                <input id="newUserEmail" type="email" required>
-              </label>
-              <label class="field">
-                <span>Contraseña temporal</span>
-                <input id="newUserPassword" type="password" minlength="6" required>
-              </label>
-              <label class="field">
-                <span>Rol</span>
-                <select id="newUserRole">
-                  <option value="user">Usuario</option>
-                  <option value="admin">Administrador</option>
-                </select>
-              </label>
-              <button id="createUserBtn" class="button button--secondary" type="submit">Crear usuario</button>
-            </form>
-          </details>
-        </section>
+              <button id="clearDateBtn" class="button button--ghost button--compact" type="button">Ver próximas</button>
+            </div>
+            <div id="loadingState" class="state-box">
+              <span class="spinner" aria-hidden="true"></span>
+              <p>Cargando reservas…</p>
+            </div>
+            <div id="emptyState" class="state-box hidden">
+              <span class="state-icon" aria-hidden="true">✓</span>
+              <h3>No hay reservas para mostrar</h3>
+              <p>Probá otra fecha o creá una reserva nueva.</p>
+            </div>
+            <div id="reservationsTableWrap" class="table-wrap hidden">
+              <table>
+                <thead><tr><th>Horario</th><th>Reserva</th><th>Personas</th><th>Contacto</th><th>Observaciones</th><th>Origen</th><th class="actions-column">Acciones</th></tr></thead>
+                <tbody id="reservationsBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="adminSection" class="panel admin-panel hidden">
+            <details>
+              <summary><span><strong>Administración de usuarios</strong><small>Crear accesos para el equipo</small></span><span aria-hidden="true">＋</span></summary>
+              <form id="createUserForm" class="admin-form">
+                <label class="field"><span>Nombre</span><input id="newUserName" type="text" required></label>
+                <label class="field"><span>Correo</span><input id="newUserEmail" type="email" required></label>
+                <label class="field"><span>Contraseña temporal</span><input id="newUserPassword" type="password" minlength="6" required></label>
+                <label class="field"><span>Rol</span><select id="newUserRole"><option value="user">Usuario</option><option value="admin">Administrador</option></select></label>
+                <button id="createUserBtn" class="button button--secondary" type="submit">Crear usuario</button>
+              </form>
+            </details>
+          </section>
+        </div>
+
+        <div id="viewShows" class="workspace-view hidden">
+          <section class="page-heading">
+            <div><p class="eyebrow">Agenda musical de Sofía</p><h1>Shows</h1><p class="page-copy">La información cargada aquí es la que Sofía comunica a los clientes.</p></div>
+            <button id="newShowBtn" class="button button--primary" type="button"><span aria-hidden="true">＋</span> Nuevo show</button>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><div><h2>Bandas y música en vivo</h2><p id="showsSummary" class="panel-copy">Cargando agenda…</p></div></div>
+            <div id="showsLoadingState" class="state-box"><span class="spinner" aria-hidden="true"></span><p>Cargando shows…</p></div>
+            <div id="showsEmptyState" class="state-box hidden"><span class="state-icon" aria-hidden="true">♪</span><h3>No hay shows próximos cargados</h3><p>Agregá el primero para que Sofía pueda informarlo.</p></div>
+            <div id="showsTableWrap" class="table-wrap hidden">
+              <table class="shows-table"><thead><tr><th>Fecha</th><th>Nombre</th><th>Hora</th><th>Estilo musical</th><th>Observaciones</th><th class="actions-column">Acciones</th></tr></thead><tbody id="showsBody"></tbody></table>
+            </div>
+          </section>
+        </div>
+
+        <div id="viewAlerts" class="workspace-view hidden">
+          <section class="page-heading">
+            <div><p class="eyebrow">Asistencia humana</p><h1>Alertas de Sofía</h1><p class="page-copy">Consultas que necesitan seguimiento del equipo.</p></div>
+          </section>
+          <section class="sofia-control panel">
+            <div><span id="sofiaStatusBadge" class="status-badge status-badge--active">Sofía activa</span><h2>Control de atención automática</h2><p class="panel-copy">Al apagarla, se detienen las respuestas de IA para todos los clientes.</p></div>
+            <button id="sofiaToggleBtn" class="button button--danger hidden" type="button">Apagar Sofía</button>
+          </section>
+          <section class="panel alerts-panel">
+            <div class="panel-header"><div><h2>Solicitudes</h2><p id="alertsSummary" class="panel-copy">Cargando alertas…</p></div></div>
+            <div id="alertsLoadingState" class="state-box"><span class="spinner" aria-hidden="true"></span><p>Cargando alertas…</p></div>
+            <div id="alertsEmptyState" class="state-box hidden"><span class="state-icon" aria-hidden="true">✓</span><h3>No hay alertas</h3><p>Las derivaciones de Sofía aparecerán acá.</p></div>
+            <div id="alertsTableWrap" class="table-wrap hidden">
+              <table class="alerts-table"><thead><tr><th>Recibida</th><th>Cliente</th><th>Motivo</th><th>Resumen</th><th>Estado</th><th class="actions-column">Acción</th></tr></thead><tbody id="alertsBody"></tbody></table>
+            </div>
+          </section>
+        </div>
       </main>
+    </div>
+
+    <div id="showModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="showModalTitle">
+      <div class="modal-backdrop" data-close-show></div>
+      <section class="modal-card">
+        <header class="modal-header">
+          <div><p id="showModalEyebrow" class="eyebrow">Nuevo show</p><h2 id="showModalTitle">Agregar a la agenda musical</h2></div>
+          <button class="icon-button" type="button" data-close-show aria-label="Cerrar">×</button>
+        </header>
+        <form id="showForm" class="reservation-form">
+          <div class="form-grid">
+            <label class="field"><span>Fecha *</span><input id="showDate" type="date" required></label>
+            <label class="field"><span>Hora *</span><input id="showTime" type="time" required></label>
+            <label class="field field--wide"><span>Nombre de la banda o show *</span><input id="showName" type="text" maxlength="120" required></label>
+            <label class="field field--wide"><span>Estilo de música</span><input id="showMusicStyle" type="text" maxlength="120"></label>
+            <label class="field field--wide"><span>Observaciones</span><textarea id="showNotes" rows="4" maxlength="800"></textarea></label>
+          </div>
+          <p id="showError" class="form-message form-message--error hidden" role="alert"></p>
+          <footer class="modal-actions"><button class="button button--ghost" type="button" data-close-show>Cancelar</button><button id="saveShowBtn" class="button button--primary" type="submit">Guardar show</button></footer>
+        </form>
+      </section>
     </div>
 
     <div id="reservationModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="reservationModalTitle">
