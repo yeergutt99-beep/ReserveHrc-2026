@@ -203,20 +203,44 @@ exports.sendHumanAlertEmail = onDocumentCreated(
   async (event) => {
     const alert = event.data?.data();
     if (!alert) return;
-    const email = humanAlertEmail(alert);
-    await createMailTransporter().sendMail({
-      from: process.env.SMTP_FROM,
-      to: humanAlertRecipientsForEnvironment(),
-      subject: email.subject,
-      text: email.text
+    const now = new Date();
+    const claimed = await db.runTransaction(async (transaction) => {
+      const freshSnapshot = await transaction.get(event.data.ref);
+      const freshAlert = freshSnapshot.data();
+      if (!freshAlert || freshAlert.immediateEmailSentAt) return false;
+      const claimedAt = timestampToDate(freshAlert.immediateEmailClaimedAt);
+      if (claimedAt && now.getTime() - claimedAt.getTime() < 15 * 60 * 1000) {
+        return false;
+      }
+      transaction.update(event.data.ref, {
+        immediateEmailClaimedAt: admin.firestore.Timestamp.fromDate(now)
+      });
+      return true;
     });
-    await event.data.ref.update({
-      immediateEmailSentAt: admin.firestore.FieldValue.serverTimestamp()
-    });
-    logger.info('Alerta humana enviada por correo.', {
-      companyId: event.params.companyId,
-      alertId: event.params.alertId
-    });
+    if (!claimed) return;
+
+    try {
+      const email = humanAlertEmail(alert);
+      await createMailTransporter().sendMail({
+        from: process.env.SMTP_FROM,
+        to: humanAlertRecipientsForEnvironment(),
+        subject: email.subject,
+        text: email.text
+      });
+      await event.data.ref.update({
+        immediateEmailSentAt: admin.firestore.FieldValue.serverTimestamp(),
+        immediateEmailClaimedAt: admin.firestore.FieldValue.delete()
+      });
+      logger.info('Alerta humana enviada por correo.', {
+        companyId: event.params.companyId,
+        alertId: event.params.alertId
+      });
+    } catch (error) {
+      await event.data.ref.update({
+        immediateEmailClaimedAt: admin.firestore.FieldValue.delete()
+      });
+      throw error;
+    }
   }
 );
 
