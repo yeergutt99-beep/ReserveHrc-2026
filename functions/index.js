@@ -1,5 +1,6 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
@@ -9,6 +10,12 @@ const {
   expirationForReservation,
   isReservationExpired
 } = require('./reservation-time');
+const {
+  humanAlertEmail,
+  humanAlertRecipients,
+  isAlertDueForReminder,
+  timestampToDate
+} = require('./human-alerts');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -171,3 +178,187 @@ exports.cleanupExpiredReservations = onSchedule(
     });
   }
 );
+
+function createMailTransporter() {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: false,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  });
+}
+
+function humanAlertRecipientsForEnvironment() {
+  return humanAlertRecipients(process.env.HUMAN_ALERT_TO).join(',');
+}
+
+exports.sendHumanAlertEmail = onDocumentCreated(
+  {
+    document: 'companies/{companyId}/humanAlerts/{alertId}',
+    retry: true
+  },
+  async (event) => {
+    const alert = event.data?.data();
+    if (!alert) return;
+    const email = humanAlertEmail(alert);
+    await createMailTransporter().sendMail({
+      from: process.env.SMTP_FROM,
+      to: humanAlertRecipientsForEnvironment(),
+      subject: email.subject,
+      text: email.text
+    });
+    await event.data.ref.update({
+      immediateEmailSentAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    logger.info('Alerta humana enviada por correo.', {
+      companyId: event.params.companyId,
+      alertId: event.params.alertId
+    });
+  }
+);
+
+exports.sendPendingHumanAlertReminders = onSchedule(
+  { schedule: 'every 60 minutes', timeZone: RESERVATION_TIME_ZONE },
+  async () => {
+    const companyIds = (process.env.ALERT_COMPANY_IDS || 'hrc-ushuaia')
+      .split(',')
+      .map((companyId) => companyId.trim())
+      .filter(Boolean);
+    const now = new Date();
+    let remindersSent = 0;
+
+    for (const companyId of companyIds) {
+      const alertsSnapshot = await db
+        .collection('companies')
+        .doc(companyId)
+        .collection('humanAlerts')
+        .where('reminderSent', '==', false)
+        .get();
+
+      for (const alertDocument of alertsSnapshot.docs) {
+        const alert = alertDocument.data();
+        if (!isAlertDueForReminder(alert, now)) continue;
+
+        const claimed = await db.runTransaction(async (transaction) => {
+          const freshSnapshot = await transaction.get(alertDocument.ref);
+          const freshAlert = freshSnapshot.data();
+          if (!isAlertDueForReminder(freshAlert, now)) return false;
+          const claimedAt = timestampToDate(freshAlert.reminderClaimedAt);
+          if (claimedAt && now.getTime() - claimedAt.getTime() < 15 * 60 * 1000) {
+            return false;
+          }
+          transaction.update(alertDocument.ref, {
+            reminderClaimedAt: admin.firestore.Timestamp.fromDate(now)
+          });
+          return true;
+        });
+        if (!claimed) continue;
+
+        try {
+          const email = humanAlertEmail(alert, { reminder: true });
+          await createMailTransporter().sendMail({
+            from: process.env.SMTP_FROM,
+            to: humanAlertRecipientsForEnvironment(),
+            subject: email.subject,
+            text: email.text
+          });
+          await alertDocument.ref.update({
+            reminderSent: true,
+            reminderSentAt: admin.firestore.FieldValue.serverTimestamp(),
+            reminderClaimedAt: admin.firestore.FieldValue.delete()
+          });
+          remindersSent += 1;
+        } catch (error) {
+          await alertDocument.ref.update({
+            reminderClaimedAt: admin.firestore.FieldValue.delete()
+          });
+          throw error;
+        }
+      }
+    }
+
+    logger.info('Revisión de recordatorios humanos completada.', {
+      companies: companyIds.length,
+      remindersSent
+    });
+  }
+);
+
+exports.updateHumanAlertStatus = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Debes iniciar sesión.');
+  }
+  const requester = await getUserContext(request.auth.uid);
+  const alertId = String(request.data.alertId || '').trim();
+  const status = String(request.data.status || '').trim();
+  if (!alertId || !['in_progress', 'resolved'].includes(status)) {
+    throw new HttpsError('invalid-argument', 'Alerta o estado inválido.');
+  }
+
+  const company = db.collection('companies').doc(requester.companyId);
+  const alertRef = company.collection('humanAlerts').doc(alertId);
+  await db.runTransaction(async (transaction) => {
+    const alertSnapshot = await transaction.get(alertRef);
+    if (!alertSnapshot.exists) {
+      throw new HttpsError('not-found', 'La alerta no existe.');
+    }
+    const alert = alertSnapshot.data();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const changes = {
+      status,
+      updatedAt: now,
+      updatedBy: request.auth.uid
+    };
+    if (status === 'in_progress') {
+      changes.takenAt = now;
+      changes.takenBy = request.auth.uid;
+    } else {
+      changes.resolvedAt = now;
+      changes.resolvedBy = request.auth.uid;
+      if (alert.senderId) {
+        transaction.set(
+          company.collection('sofiaConversations').doc(alert.senderId),
+          {
+            paused: false,
+            activeAlertId: admin.firestore.FieldValue.delete(),
+            handoffReason: admin.firestore.FieldValue.delete(),
+            resumedAt: now
+          },
+          { merge: true }
+        );
+      }
+    }
+    transaction.update(alertRef, changes);
+  });
+  return { status };
+});
+
+exports.setSofiaEnabled = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Debes iniciar sesión.');
+  }
+  const requester = await getUserContext(request.auth.uid);
+  if (requester.role !== 'admin') {
+    throw new HttpsError('permission-denied', 'Solo un administrador puede apagar a Sofía.');
+  }
+  if (typeof request.data.enabled !== 'boolean') {
+    throw new HttpsError('invalid-argument', 'El estado de Sofía debe ser verdadero o falso.');
+  }
+  await db
+    .collection('companies')
+    .doc(requester.companyId)
+    .collection('settings')
+    .doc('sofia')
+    .set(
+      {
+        enabled: request.data.enabled,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: request.auth.uid
+      },
+      { merge: true }
+    );
+  return { enabled: request.data.enabled };
+});
