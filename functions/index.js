@@ -1,6 +1,6 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentDeleted } = require('firebase-functions/v2/firestore');
 const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
@@ -16,6 +16,7 @@ const {
   isAlertDueForReminder,
   timestampToDate
 } = require('./human-alerts');
+const { recursivelyDeleteConversation } = require('./conversation-cleanup');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -244,6 +245,20 @@ exports.sendHumanAlertEmail = onDocumentCreated(
   }
 );
 
+exports.cleanupDeletedSofiaConversationMessages = onDocumentDeleted(
+  {
+    document: 'companies/{companyId}/sofiaConversations/{senderId}',
+    retry: true
+  },
+  async (event) => {
+    await recursivelyDeleteConversation(db, event.data?.ref);
+    logger.info('Historial de conversacion eliminado por inactividad.', {
+      companyId: event.params.companyId,
+      senderId: event.params.senderId
+    });
+  }
+);
+
 exports.sendPendingHumanAlertReminders = onSchedule(
   { schedule: 'every 60 minutes', timeZone: RESERVATION_TIME_ZONE },
   async () => {
@@ -349,7 +364,8 @@ exports.updateHumanAlertStatus = onCall(async (request) => {
             paused: false,
             activeAlertId: admin.firestore.FieldValue.delete(),
             handoffReason: admin.firestore.FieldValue.delete(),
-            resumedAt: now
+            resumedAt: now,
+            updatedAt: now
           },
           { merge: true }
         );
