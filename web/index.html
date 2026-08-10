@@ -65,7 +65,21 @@
         </div>
       </header>
 
+      <nav class="primary-nav" aria-label="Secciones principales">
+        <button class="nav-tab nav-tab--active" type="button" data-view="reservations">
+          <span aria-hidden="true">▦</span> Reservas
+        </button>
+        <button class="nav-tab" type="button" data-view="conversations">
+          <span aria-hidden="true">◌</span> Conversaciones
+          <span id="pendingConversationCount" class="nav-counter hidden">0</span>
+        </button>
+        <button class="nav-tab" type="button" data-view="information">
+          <span aria-hidden="true">i</span> Información
+        </button>
+      </nav>
+
       <main class="content">
+        <section id="reservationsView" class="app-page">
         <nav class="workspace-nav" aria-label="Secciones operativas">
           <button class="workspace-tab is-active" type="button" data-view="reservations">Reservas</button>
           <button class="workspace-tab" type="button" data-view="shows">Shows</button>
@@ -187,6 +201,200 @@
             </div>
           </section>
         </div>
+        </section>
+
+        <section id="conversationsView" class="app-page hidden">
+          <section class="page-heading page-heading--compact">
+            <div>
+              <p class="eyebrow">WhatsApp · Sofía</p>
+              <h1>Conversaciones</h1>
+              <p class="page-copy">Supervisá los chats y tomá el control cuando el equipo deba intervenir.</p>
+            </div>
+          </section>
+
+          <div class="conversation-layout">
+            <aside class="panel conversation-sidebar" aria-label="Lista de conversaciones">
+              <div class="conversation-tools">
+                <label class="search-field">
+                  <span aria-hidden="true">⌕</span>
+                  <input id="conversationSearch" type="search" placeholder="Buscar número o mensaje">
+                </label>
+                <label class="compact-field">
+                  <span>Filtrar</span>
+                  <select id="conversationFilter">
+                    <option value="all">Todas</option>
+                    <option value="reservation">Reservas</option>
+                    <option value="consultation">Consultas</option>
+                    <option value="handoff">Derivaciones</option>
+                  </select>
+                </label>
+              </div>
+              <div id="conversationsLoading" class="state-box state-box--compact">
+                <span class="spinner" aria-hidden="true"></span>
+                <p>Cargando conversaciones…</p>
+              </div>
+              <div id="conversationsEmpty" class="state-box state-box--compact hidden">
+                <span class="state-icon" aria-hidden="true">◌</span>
+                <h3>No hay conversaciones</h3>
+                <p>Los nuevos mensajes de WhatsApp aparecerán aquí.</p>
+              </div>
+              <div id="conversationList" class="conversation-list"></div>
+            </aside>
+
+            <section class="panel chat-panel" aria-label="Conversación seleccionada">
+              <div id="chatPlaceholder" class="chat-placeholder">
+                <span aria-hidden="true">◌</span>
+                <h2>Elegí una conversación</h2>
+                <p>Podrás revisar el historial completo y responder desde el número de Sofía.</p>
+              </div>
+
+              <div id="activeChat" class="chat-shell hidden">
+                <header class="chat-header">
+                  <div class="chat-identity">
+                    <span class="conversation-avatar" aria-hidden="true">WA</span>
+                    <div>
+                      <h2 id="chatPhone">Número</h2>
+                      <div class="chat-meta-line">
+                        <span id="chatStatus" class="conversation-status"></span>
+                        <span id="chatReservationEvent" class="reservation-event hidden"></span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="chat-actions">
+                    <button id="pauseSofiaBtn" class="button button--secondary button--compact" type="button">
+                      Pausar a Sofía
+                    </button>
+                    <button id="resumeSofiaBtn" class="button button--primary button--compact hidden" type="button">
+                      Devolver a Sofía
+                    </button>
+                    <button id="closeConversationBtn" class="button button--ghost button--compact" type="button">
+                      Finalizar
+                    </button>
+                  </div>
+                </header>
+
+                <div id="messageList" class="message-list" aria-live="polite"></div>
+
+                <form id="manualReplyForm" class="reply-box">
+                  <label class="sr-only" for="manualReplyText">Responder al cliente</label>
+                  <textarea
+                    id="manualReplyText"
+                    rows="2"
+                    maxlength="4096"
+                    placeholder="Escribí una respuesta como equipo de Hard Rock…"
+                    required
+                  ></textarea>
+                  <button id="sendManualReplyBtn" class="button button--primary" type="submit">Enviar</button>
+                  <p class="reply-note">Al responder manualmente, Sofía se pausa en esta conversación.</p>
+                </form>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="informationView" class="app-page hidden">
+          <section class="page-heading page-heading--compact">
+            <div>
+              <p class="eyebrow">Base editable de Sofía</p>
+              <h1>Información</h1>
+              <p class="page-copy">Los cambios guardados tienen prioridad inmediata sobre la configuración anterior.</p>
+            </div>
+            <div class="information-save">
+              <span id="informationUpdatedAt" class="information-updated">Sin cambios guardados</span>
+              <button id="saveInformationBtn" class="button button--primary" type="submit" form="informationForm">
+                Guardar información
+              </button>
+            </div>
+          </section>
+
+          <form id="informationForm" class="information-grid">
+            <section class="panel information-card">
+              <header class="information-card__header">
+                <span class="information-icon" aria-hidden="true">$</span>
+                <div>
+                  <h2>Cotizaciones</h2>
+                  <p>Valores en pesos argentinos que informa Sofía.</p>
+                </div>
+              </header>
+              <div class="form-grid form-grid--three">
+                <label class="field"><span>Dólar (USD)</span><input id="infoUsd" type="number" min="1" step="1" required></label>
+                <label class="field"><span>Euro (EUR)</span><input id="infoEur" type="number" min="1" step="1" required></label>
+                <label class="field"><span>Real (BRL)</span><input id="infoBrl" type="number" min="1" step="1" required></label>
+                <label class="field field--wide"><span>Fecha de actualización</span><input id="infoRatesUpdatedAt" type="date" required></label>
+              </div>
+            </section>
+
+            <section class="panel information-card">
+              <header class="information-card__header">
+                <span class="information-icon" aria-hidden="true">◷</span>
+                <div><h2>Horarios</h2><p>Separados por sector y días de atención.</p></div>
+              </header>
+              <div class="hours-grid">
+                <strong></strong><strong>Domingo a jueves</strong><strong>Viernes y sábado</strong>
+                <span>Restaurante</span>
+                <input id="infoSunThuRestaurant" type="text" placeholder="11:30-23:59" required>
+                <input id="infoFriSatRestaurant" type="text" placeholder="11:30-01:00" required>
+                <span>Rock Shop</span>
+                <input id="infoSunThuRockShop" type="text" placeholder="10:30-23:59" required>
+                <input id="infoFriSatRockShop" type="text" placeholder="10:30-01:00" required>
+              </div>
+            </section>
+
+            <section class="panel information-card">
+              <header class="information-card__header">
+                <span class="information-icon" aria-hidden="true">⌖</span>
+                <div><h2>Contacto y carta</h2><p>Datos que Sofía comparte con los clientes.</p></div>
+              </header>
+              <div class="form-grid">
+                <label class="field field--wide"><span>Dirección</span><input id="infoAddress" type="text" maxlength="300" required></label>
+                <label class="field"><span>Teléfono público</span><input id="infoPhone" type="text" maxlength="100"></label>
+                <label class="field"><span>Enlace de la carta digital</span><input id="infoMenuUrl" type="url" maxlength="800"></label>
+              </div>
+            </section>
+
+            <section class="panel information-card">
+              <header class="information-card__header">
+                <span class="information-icon" aria-hidden="true">#</span>
+                <div><h2>Reglas de reserva</h2><p>Cupos, cortes y cantidades por área.</p></div>
+              </header>
+              <div class="form-grid form-grid--three">
+                <label class="field"><span>Cupo diario</span><input id="infoDailyLimit" type="number" min="1" max="1000" required></label>
+                <label class="field"><span>Corte mismo día</span><input id="infoSameDayCutoff" type="time" required></label>
+                <label class="field"><span>Mínimo restaurante</span><input id="infoRestaurantMin" type="number" min="1" max="500" required></label>
+                <label class="field"><span>Mínimo bowling</span><input id="infoBowlingMin" type="number" min="1" max="500" required></label>
+                <label class="field"><span>Máximo bowling automático</span><input id="infoBowlingMax" type="number" min="1" max="500" required></label>
+                <label class="field field--wide"><span>Reglas adicionales por área o grupo</span><textarea id="infoAreasNotes" rows="5" maxlength="5000"></textarea></label>
+              </div>
+            </section>
+
+            <section class="panel information-card information-card--wide">
+              <header class="information-card__header">
+                <span class="information-icon" aria-hidden="true">★</span>
+                <div><h2>Promociones</h2><p>Beneficios vigentes, condiciones y restricciones.</p></div>
+              </header>
+              <label class="field"><span>Promociones vigentes</span><textarea id="infoPromotions" rows="8" maxlength="15000"></textarea></label>
+            </section>
+
+            <section class="panel information-card information-card--wide">
+              <header class="information-card__header">
+                <span class="information-icon" aria-hidden="true">≡</span>
+                <div><h2>Menú</h2><p>Platos, bebidas, precios y opciones alimentarias que deban priorizarse.</p></div>
+              </header>
+              <label class="field"><span>Información del menú</span><textarea id="infoMenu" rows="14" maxlength="40000"></textarea></label>
+            </section>
+
+            <section class="panel information-card information-card--wide">
+              <header class="information-card__header">
+                <span class="information-icon" aria-hidden="true">✓</span>
+                <div><h2>Políticas e información general</h2><p>Pagos, acceso, celebraciones, eventos y cualquier regla operativa.</p></div>
+              </header>
+              <div class="form-grid">
+                <label class="field field--wide"><span>Políticas</span><textarea id="infoPolicies" rows="9" maxlength="20000"></textarea></label>
+                <label class="field field--wide"><span>Información general adicional</span><textarea id="infoGeneral" rows="9" maxlength="20000"></textarea></label>
+              </div>
+            </section>
+          </form>
+        </section>
       </main>
     </div>
 
