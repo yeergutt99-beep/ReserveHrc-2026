@@ -5,7 +5,7 @@
   "engines": { "node": "20" },
   "main": "index.js",
   "scripts": {
-    "check": "node --check index.js && node --check reservation-time.js && node --check human-alerts.js",
+    "check": "node --check index.js && node --check reservation-time.js && node --check human-alerts.js && node --check conversation-cleanup.js",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
