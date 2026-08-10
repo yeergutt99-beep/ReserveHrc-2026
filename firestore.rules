@@ -78,5 +78,26 @@ service cloud.firestore {
       allow read: if sameCompany(companyId);
       allow write: if false;
     }
+
+    match /companies/{companyId}/sofiaConversations/{conversationId} {
+      allow read: if sameCompany(companyId);
+      allow write: if false;
+
+      match /messages/{messageId} {
+        allow read: if sameCompany(companyId);
+        allow write: if false;
+      }
+    }
+
+    match /companies/{companyId}/sofiaInformation/{documentId} {
+      allow read: if sameCompany(companyId);
+      allow create: if isAdmin()
+        && sameCompany(companyId)
+        && request.resource.data.companyId == companyId;
+      allow update: if isAdmin()
+        && sameCompany(companyId)
+        && request.resource.data.companyId == companyId;
+      allow delete: if false;
+    }
   }
 }
