@@ -2,15 +2,18 @@
   "name": "reservehrc-functions",
   "version": "1.0.0",
   "private": true,
-  "engines": { "node": "20" },
+  "engines": { "node": "22" },
   "main": "index.js",
   "scripts": {
     "check": "node --check index.js && node --check reservation-time.js && node --check human-alerts.js && node --check conversation-cleanup.js",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "firebase-admin": "^12.1.1",
-    "firebase-functions": "^5.0.1",
-    "nodemailer": "^6.9.14"
+    "firebase-admin": "^14.2.0",
+    "firebase-functions": "^7.3.2",
+    "nodemailer": "^9.0.5"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }
