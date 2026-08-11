@@ -2,7 +2,9 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onDocumentCreated, onDocumentDeleted } = require('firebase-functions/v2/firestore');
 const logger = require('firebase-functions/logger');
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
+const { FieldValue, Timestamp, getFirestore } = require('firebase-admin/firestore');
 const nodemailer = require('nodemailer');
 const {
   RESERVATION_TIME_ZONE,
@@ -18,8 +20,9 @@ const {
 } = require('./human-alerts');
 const { recursivelyDeleteConversation } = require('./conversation-cleanup');
 
-admin.initializeApp();
-const db = admin.firestore();
+initializeApp();
+const auth = getAuth();
+const db = getFirestore();
 
 function toDateString(date) {
   return dateStringInTimeZone(date);
@@ -48,7 +51,7 @@ exports.createUserByAdmin = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Faltan datos obligatorios.');
   }
 
-  const userRecord = await admin.auth().createUser({
+  const userRecord = await auth.createUser({
     email,
     password,
     displayName
@@ -59,7 +62,7 @@ exports.createUserByAdmin = onCall(async (request) => {
     role,
     email,
     displayName,
-    createdAt: admin.firestore.FieldValue.serverTimestamp()
+    createdAt: FieldValue.serverTimestamp()
   });
 
   return { uid: userRecord.uid };
@@ -214,7 +217,7 @@ exports.sendHumanAlertEmail = onDocumentCreated(
         return false;
       }
       transaction.update(event.data.ref, {
-        immediateEmailClaimedAt: admin.firestore.Timestamp.fromDate(now)
+        immediateEmailClaimedAt: Timestamp.fromDate(now)
       });
       return true;
     });
@@ -229,8 +232,8 @@ exports.sendHumanAlertEmail = onDocumentCreated(
         text: email.text
       });
       await event.data.ref.update({
-        immediateEmailSentAt: admin.firestore.FieldValue.serverTimestamp(),
-        immediateEmailClaimedAt: admin.firestore.FieldValue.delete()
+        immediateEmailSentAt: FieldValue.serverTimestamp(),
+        immediateEmailClaimedAt: FieldValue.delete()
       });
       logger.info('Alerta humana enviada por correo.', {
         companyId: event.params.companyId,
@@ -238,7 +241,7 @@ exports.sendHumanAlertEmail = onDocumentCreated(
       });
     } catch (error) {
       await event.data.ref.update({
-        immediateEmailClaimedAt: admin.firestore.FieldValue.delete()
+        immediateEmailClaimedAt: FieldValue.delete()
       });
       throw error;
     }
@@ -290,7 +293,7 @@ exports.sendPendingHumanAlertReminders = onSchedule(
             return false;
           }
           transaction.update(alertDocument.ref, {
-            reminderClaimedAt: admin.firestore.Timestamp.fromDate(now)
+            reminderClaimedAt: Timestamp.fromDate(now)
           });
           return true;
         });
@@ -306,13 +309,13 @@ exports.sendPendingHumanAlertReminders = onSchedule(
           });
           await alertDocument.ref.update({
             reminderSent: true,
-            reminderSentAt: admin.firestore.FieldValue.serverTimestamp(),
-            reminderClaimedAt: admin.firestore.FieldValue.delete()
+            reminderSentAt: FieldValue.serverTimestamp(),
+            reminderClaimedAt: FieldValue.delete()
           });
           remindersSent += 1;
         } catch (error) {
           await alertDocument.ref.update({
-            reminderClaimedAt: admin.firestore.FieldValue.delete()
+            reminderClaimedAt: FieldValue.delete()
           });
           throw error;
         }
@@ -345,7 +348,7 @@ exports.updateHumanAlertStatus = onCall(async (request) => {
       throw new HttpsError('not-found', 'La alerta no existe.');
     }
     const alert = alertSnapshot.data();
-    const now = admin.firestore.FieldValue.serverTimestamp();
+    const now = FieldValue.serverTimestamp();
     const changes = {
       status,
       updatedAt: now,
@@ -362,8 +365,8 @@ exports.updateHumanAlertStatus = onCall(async (request) => {
           company.collection('sofiaConversations').doc(alert.senderId),
           {
             paused: false,
-            activeAlertId: admin.firestore.FieldValue.delete(),
-            handoffReason: admin.firestore.FieldValue.delete(),
+            activeAlertId: FieldValue.delete(),
+            handoffReason: FieldValue.delete(),
             resumedAt: now,
             updatedAt: now
           },
@@ -395,7 +398,7 @@ exports.setSofiaEnabled = onCall(async (request) => {
     .set(
       {
         enabled: request.data.enabled,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
         updatedBy: request.auth.uid
       },
       { merge: true }
