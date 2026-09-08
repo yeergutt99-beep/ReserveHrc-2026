@@ -6,6 +6,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { FieldValue, Timestamp, getFirestore } = require('firebase-admin/firestore');
 const nodemailer = require('nodemailer');
+const { dailyDigestEmail } = require('./daily-digest');
 const {
   RESERVATION_TIME_ZONE,
   dateStringInTimeZone,
@@ -100,27 +101,18 @@ exports.sendDailyReservationsDigest = onSchedule(
       }
     });
 
-    const lines = todayReservations.map(
-      (r) => `• ${r.time} - ${r.name} (${r.peopleCount}) [${r.companyId}]`
-    );
-
-    const alerts = largeReservations.map(
-      (r) => `⚠ ${r.date} ${r.time} - ${r.name} (${r.peopleCount})`
-    );
-
-    const body = [
-      `Reservas para hoy (${todayStr}):`,
-      lines.length ? lines.join('\n') : 'No hay reservas para hoy.',
-      '',
-      'Alertas de reservas > 15 personas (próximos 20 días):',
-      alerts.length ? alerts.join('\n') : 'Sin alertas.'
-    ].join('\n');
+    const email = dailyDigestEmail({
+      todayStr,
+      todayReservations,
+      largeReservations
+    });
 
     await transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: process.env.DIGEST_TO,
-      subject: `Resumen diario de reservas - ${todayStr}`,
-      text: body
+      subject: email.subject,
+      text: email.text,
+      html: email.html
     });
 
     logger.info('Resumen diario enviado.', {
