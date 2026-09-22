@@ -1508,6 +1508,19 @@ tbody tr:last-child td {
   font-weight: 700;
 }
 
+.bowling-hours-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.bowling-hours-field small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
 .information-card input:disabled,
 .information-card textarea:disabled {
   cursor: not-allowed;

@@ -74,8 +74,8 @@ const deleteModal = $('deleteModal');
 const DEFAULT_INFORMATION = {
   exchangeRates: { USD: 1500, EUR: 1700, BRL: 290, updatedAt: '2026-07-21' },
   openingHours: {
-    sundayThursday: { restaurant: '11:30-23:59', rockShop: '10:30-23:59' },
-    fridaySaturday: { restaurant: '11:30-01:00', rockShop: '10:30-01:00' }
+    sundayThursday: { restaurant: '11:30-23:59', rockShop: '10:30-23:59', bowlingOpening: '17:30' },
+    fridaySaturday: { restaurant: '11:30-01:00', rockShop: '10:30-01:00', bowlingOpening: '17:30' }
   },
   contact: {
     address: 'Av. San Martín 594, Ushuaia, Tierra del Fuego, Argentina',
@@ -978,6 +978,9 @@ function fillInformationForm(rawInformation) {
   $('infoSunThuRockShop').value = information.openingHours.sundayThursday.rockShop;
   $('infoFriSatRestaurant').value = information.openingHours.fridaySaturday.restaurant;
   $('infoFriSatRockShop').value = information.openingHours.fridaySaturday.rockShop;
+  $('infoSunThuBowlingOpening').value = information.openingHours.sundayThursday.bowlingOpening;
+  $('infoFriSatBowlingOpening').value = information.openingHours.fridaySaturday.bowlingOpening;
+  updateBowlingClosingHours();
   $('infoAddress').value = information.contact.address;
   $('infoPhone').value = information.contact.phone;
   $('infoMenuUrl').value = information.contact.menuUrl;
@@ -996,6 +999,16 @@ function fillInformationForm(rawInformation) {
   $('informationUpdatedAt').textContent = updated
     ? `Último cambio: ${formatDateTime(updated, { includeDate: true })}${rawInformation.updatedByName ? ` · ${rawInformation.updatedByName}` : ''}`
     : 'Todavía usa la configuración base';
+}
+
+function updateBowlingClosingHours() {
+  for (const group of ['SunThu', 'FriSat']) {
+    const range = $(`info${group}Restaurant`).value.trim();
+    const match = range.match(/^\d{1,2}:\d{2}\s*[-–—]\s*(\d{1,2}:\d{2})$/);
+    $(`info${group}BowlingClosing`).textContent = match
+      ? `Cierra a las ${match[1]}, junto con el restaurante.`
+      : 'Cierra junto con el restaurante.';
+  }
 }
 
 function setInformationPermissions() {
@@ -1043,11 +1056,13 @@ function informationPayload() {
     openingHours: {
       sundayThursday: {
         restaurant: $('infoSunThuRestaurant').value.trim(),
-        rockShop: $('infoSunThuRockShop').value.trim()
+        rockShop: $('infoSunThuRockShop').value.trim(),
+        bowlingOpening: $('infoSunThuBowlingOpening').value
       },
       fridaySaturday: {
         restaurant: $('infoFriSatRestaurant').value.trim(),
-        rockShop: $('infoFriSatRockShop').value.trim()
+        rockShop: $('infoFriSatRockShop').value.trim(),
+        bowlingOpening: $('infoFriSatBowlingOpening').value
       }
     },
     contact: {
@@ -1116,6 +1131,8 @@ $('conversationFilter').addEventListener('change', renderConversationList);
 $('pauseSofiaBtn').addEventListener('click', () => setConversationStatus('human', $('pauseSofiaBtn')));
 $('resumeSofiaBtn').addEventListener('click', () => setConversationStatus('sofia', $('resumeSofiaBtn')));
 $('closeConversationBtn').addEventListener('click', () => setConversationStatus('closed', $('closeConversationBtn')));
+$('infoSunThuRestaurant').addEventListener('input', updateBowlingClosingHours);
+$('infoFriSatRestaurant').addEventListener('input', updateBowlingClosingHours);
 
 $('manualReplyForm').addEventListener('submit', async (event) => {
   event.preventDefault();
