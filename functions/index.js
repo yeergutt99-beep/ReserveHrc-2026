@@ -20,6 +20,14 @@ const {
   timestampToDate
 } = require('./human-alerts');
 const { recursivelyDeleteConversation } = require('./conversation-cleanup');
+const {
+  NEW_YEAR_EVENT_ID,
+  NEW_YEAR_EXPIRES_AT,
+  NewYearError,
+  createNewYearEvent,
+  changeNewYearBooking,
+  changeNewYearConfiguration
+} = require('./new-year');
 
 initializeApp();
 const auth = getAuth();
@@ -36,6 +44,78 @@ async function getUserContext(uid) {
   }
   return snapshot.data();
 }
+
+exports.updateNewYearEvent = onCall({ region: 'us-central1' }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Debes iniciar sesión.');
+  const requester = await getUserContext(request.auth.uid);
+  if (!['admin', 'user'].includes(requester.role) || !/^[A-Za-z0-9_-]{1,100}$/.test(requester.companyId || '')) {
+    throw new HttpsError('permission-denied', 'Esta operación es exclusiva del equipo del restaurante.');
+  }
+  const now = new Date();
+  if (now >= NEW_YEAR_EXPIRES_AT) {
+    throw new HttpsError('failed-precondition', 'La gestión de Año Nuevo finalizó el 2 de enero de 2027.');
+  }
+  const payload = request.data || {};
+  const bookingActions = ['saveBooking', 'setStatus', 'assign', 'release', 'checkIn'];
+  const configurationActions = ['setCapacity', 'combine', 'uncombine'];
+  const isBookingAction = bookingActions.includes(payload.action);
+  if (!isBookingAction && !configurationActions.includes(payload.action)) {
+    throw new HttpsError('invalid-argument', 'La operación no es válida.');
+  }
+  if (typeof payload.requestId !== 'string' || !/^[A-Za-z0-9_-]{8,100}$/.test(payload.requestId)) {
+    throw new HttpsError('invalid-argument', 'La solicitud no tiene un identificador válido.');
+  }
+  if (isBookingAction && (typeof payload.bookingId !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(payload.bookingId))) {
+    throw new HttpsError('invalid-argument', 'El identificador del cliente no es válido.');
+  }
+  const actor = {
+    uid: request.auth.uid,
+    name: String(requester.displayName || requester.email || 'Equipo').slice(0, 120),
+    role: requester.role
+  };
+  const eventRef = db.collection('companies').doc(requester.companyId).collection('newYearEvents').doc(NEW_YEAR_EVENT_ID);
+  try {
+    return await db.runTransaction(async (transaction) => {
+      const eventSnapshot = await transaction.get(eventRef);
+      const event = eventSnapshot.exists ? eventSnapshot.data() : createNewYearEvent(requester.companyId);
+      let nextEvent;
+      let bookingVersion;
+      if (isBookingAction) {
+        const bookingRef = eventRef.collection('bookings').doc(payload.bookingId);
+        const bookingSnapshot = await transaction.get(bookingRef);
+        const previous = bookingSnapshot.exists ? bookingSnapshot.data() : null;
+        if (previous?.lastRequestId === payload.requestId) {
+          return { bookingId: payload.bookingId, bookingVersion: previous.version, revision: event.revision };
+        }
+        if (!Number.isInteger(payload.expectedVersion) || payload.expectedVersion !== (previous?.version || 0)) {
+          throw new HttpsError('failed-precondition', 'Otra persona actualizó este cliente. Volvé a abrirlo para trabajar con los datos actuales.');
+        }
+        const result = changeNewYearBooking(event, previous, payload.action, payload, actor, now);
+        nextEvent = result.event;
+        bookingVersion = result.booking.version;
+        transaction.set(bookingRef, { ...result.booking, lastRequestId: payload.requestId });
+      } else {
+        if (event.lastConfigurationRequestId === payload.requestId) return { revision: event.revision };
+        if (!Number.isInteger(payload.expectedRevision) || payload.expectedRevision !== event.revision) {
+          throw new HttpsError('failed-precondition', 'El plano cambió mientras lo editabas. Volvé a seleccionar las mesas.');
+        }
+        nextEvent = changeNewYearConfiguration(event, payload.action, payload, actor);
+        nextEvent.lastConfigurationRequestId = payload.requestId;
+      }
+      transaction.set(eventRef, {
+        ...nextEvent,
+        createdAt: event.createdAt || now,
+        updatedAt: now,
+        updatedBy: actor.uid,
+        updatedByName: actor.name
+      });
+      return { revision: nextEvent.revision, bookingId: payload.bookingId || null, bookingVersion: bookingVersion || null };
+    });
+  } catch (error) {
+    if (error instanceof NewYearError) throw new HttpsError(error.code, error.message);
+    throw error;
+  }
+});
 
 exports.createUserByAdmin = onCall(async (request) => {
   if (!request.auth) {

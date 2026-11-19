@@ -17,6 +17,11 @@ service cloud.firestore {
       return isSignedIn() && userDoc(request.auth.uid).data.companyId == companyId;
     }
 
+    function newYearStaff(companyId) {
+      return sameCompany(companyId)
+        && userDoc(request.auth.uid).data.role in ['admin', 'user'];
+    }
+
     function validReservation(data, companyId) {
       return data.companyId == companyId
         && data.peopleCount is int
@@ -44,6 +49,18 @@ service cloud.firestore {
         && data.musicStyle.size() <= 120
         && data.notes is string
         && data.notes.size() <= 800;
+    }
+
+    // Año Nuevo is maintained by the staff-only callable. Clients can read
+    // their company's event and booking records, while direct writes are denied.
+    match /companies/{companyId}/newYearEvents/{eventId} {
+      allow read: if eventId == 'new-year-2026' && newYearStaff(companyId);
+      allow write: if false;
+
+      match /bookings/{bookingId} {
+        allow read: if eventId == 'new-year-2026' && newYearStaff(companyId);
+        allow write: if false;
+      }
     }
 
     match /users/{uid} {

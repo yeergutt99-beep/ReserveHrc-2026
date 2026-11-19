@@ -16,12 +16,23 @@ Panel de reservas de Hard Rock Cafe Ushuaia construido con Firebase Authenticati
 - Vista diaria o de todas las próximas reservas.
 - Identificación de reservas manuales y originadas por Sofía/WhatsApp.
 - Creación de usuarios desde el panel de administración.
+- Pestaña interna de Año Nuevo con pagos, clientes, plano, mesas compartidas, combinaciones y exportación CSV.
 - Resumen diario por correo.
 - Limpieza automática cada hora: elimina una reserva cuando ya pasaron 24 horas desde su fecha y hora.
 
 Las alertas humanas son independientes del resumen diario de reservas de las 15:00. Usan las
 mismas variables SMTP. Opcionalmente, `HUMAN_ALERT_TO` permite configurar destinatarios
 separados por comas y `ALERT_COMPANY_IDS` define las empresas revisadas por el recordatorio.
+
+## Año Nuevo 2026
+
+El módulo usa `companies/{companyId}/newYearEvents/new-year-2026` y su subcolección
+`bookings`. Solo los roles `admin` y `user` de la empresa pueden leerlo. Todas las
+modificaciones pasan por `updateNewYearEvent`, que valida versiones, cupo y lugares
+en una transacción. El tope inicial es de 176 cubiertos y el administrador puede
+reducirlo. Los pendientes no descuentan cupo y la cancelación conserva el pago
+registrado. El 2 de enero de 2027 a las 00:00 de Ushuaia se oculta la pestaña y se
+cierran las modificaciones. Los registros permanecen guardados para el equipo.
 
 ## Modelo de reserva
 
