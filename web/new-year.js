@@ -15,6 +15,25 @@ const POSITIONS = [
 const FAMILIES = [[50, 51, 52, 53, 54], [60, 61, 62, 63, 64], [11, 21, 31, 41]];
 const MAX_CAPACITY = POSITIONS.length * 4;
 const STATUS_LABELS = { pending: 'Pendiente de pago', paid: 'Pagado', cancelled: 'Cancelado' };
+const MAIN_COURSES = [
+  ['bondiola', 'Bondiola'], ['peceto', 'Peceto Relleno'], ['ojo-de-bife', 'Ojo de Bife'],
+  ['lasana-berenjenas', 'Lasaña de Berenjenas (Veggie)'], ['canelones-verdura', 'Canelones de Verdura (Veggie)']
+];
+const courseLabel = (id) => MAIN_COURSES.find(([value]) => value === id)?.[1] || 'Por confirmar';
+const bookingCourses = (booking) => Array.from({ length: booking.peopleCount }, (_, index) => booking.mainCourses?.[index] || '');
+
+// Keep native select options alive across snapshots and selection changes.
+function syncOptions(select, entries, value) {
+  const wanted = new Set(entries.map(([key]) => key));
+  for (const option of [...select.options]) if (!wanted.has(option.value)) option.remove();
+  entries.forEach(([key, label], index) => {
+    let option = [...select.options].find((item) => item.value === key);
+    if (!option) option = new Option(label, key);
+    if (option.textContent !== label) option.textContent = label;
+    if (select.options[index] !== option) select.insertBefore(option, select.options[index] || null);
+  });
+  if (select.value !== String(value)) select.value = value;
+}
 
 function normalized(value) {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -55,6 +74,10 @@ export function createNewYearController({ db, functions, notify, onExpire }) {
     bookings: [],
     selectedTable: 41,
     selectedBooking: '',
+    assignmentMessage: '',
+    assignmentError: false,
+    assigning: false,
+    mealDraft: [],
     search: '',
     mergeMode: false,
     picked: new Set(),
@@ -209,6 +232,7 @@ export function createNewYearController({ db, functions, notify, onExpire }) {
       const remove = members.every((member) => state.picked.has(member));
       members.forEach((member) => remove ? state.picked.delete(member) : state.picked.add(member));
     } else {
+      state.assignmentMessage = '';
       state.selectedTable = members[0];
     }
     render();
@@ -281,28 +305,33 @@ export function createNewYearController({ db, functions, notify, onExpire }) {
   function renderAssignment() {
     const members = groupFor(state.selectedTable);
     const count = groupOccupancy(members);
-    $('newYearTable').replaceChildren();
+    const tableOptions = [];
     for (const table of tables) {
       const group = groupFor(table.id);
-      if (group[0] === table.id) $('newYearTable').add(new Option(`${groupLabel(group)} · ${groupOccupancy(group)}/${group.length * 4}`, String(table.id)));
+      if (group[0] === table.id) tableOptions.push([String(table.id), `${groupLabel(group)} · ${groupOccupancy(group)}/${group.length * 4}`]);
     }
-    $('newYearTable').value = members[0];
+    syncOptions($('newYearTable'), tableOptions, members[0]);
+    $('newYearTable').disabled = state.busy || state.mergeMode;
     $('newYearSelectedTable').textContent = groupLabel(members);
     $('newYearTableOccupancy').textContent = `${count} de ${members.length * 4} lugares asignados`;
     $('newYearUnmerge').disabled = members.length < 2 || state.busy;
     $('newYearUnmerge').textContent = members.length > 1 ? `Descombinar ${members.join(' + ')}` : 'Descombinar mesas';
     const unassigned = state.bookings.filter((booking) => booking.status === 'paid' && assignedPlaces(booking) < booking.peopleCount);
-    if (!unassigned.some((booking) => booking.id === state.selectedBooking)) state.selectedBooking = unassigned[0]?.id || '';
-    $('newYearAssignBooking').replaceChildren();
-    unassigned.forEach((booking) => $('newYearAssignBooking').add(new Option(`${booking.name} · ${booking.peopleCount - assignedPlaces(booking)} por ubicar`, booking.id)));
-    if (!unassigned.length) $('newYearAssignBooking').add(new Option('Sin clientes por ubicar', ''));
-    $('newYearAssignBooking').value = state.selectedBooking;
+    if (!unassigned.some((booking) => booking.id === state.selectedBooking)) state.selectedBooking = '';
+    const bookingOptions = [['', unassigned.length ? 'Elegí un cliente' : 'Sin pagados por ubicar'], ...unassigned.map((booking) => [booking.id, `${booking.name} · ${booking.peopleCount - assignedPlaces(booking)} por ubicar`])];
+    syncOptions($('newYearAssignBooking'), bookingOptions, state.selectedBooking);
+    $('newYearAssignBooking').disabled = state.busy || state.mergeMode || !unassigned.length;
     const booking = unassigned.find((item) => item.id === state.selectedBooking);
     const maximum = booking ? Math.min(booking.peopleCount - assignedPlaces(booking), members.length * 4 - count) : 0;
     $('newYearAssignCount').max = Math.max(1, maximum);
-    $('newYearAssignCount').value = maximum ? Math.min(Math.max(1, Number($('newYearAssignCount').value) || 1), maximum) : 1;
+    $('newYearAssignCount').disabled = !booking || state.busy || state.mergeMode;
     $('newYearAssign').disabled = !maximum || state.busy || state.mergeMode;
-    $('newYearAssignHint').textContent = maximum ? `Podés asignar hasta ${maximum} lugares de este cliente.` : count === members.length * 4 ? 'Mesa completa.' : 'Sin lugares confirmados pendientes de ubicación.';
+    $('newYearAssign').textContent = state.assigning ? 'Asignando…' : 'Asignar lugares';
+    const pending = state.bookings.filter((item) => item.status === 'pending').length;
+    $('newYearAssignHint').textContent = maximum ? `Quedan ${members.length * 4 - count} lugares libres. Este cliente tiene ${booking.peopleCount - assignedPlaces(booking)} por ubicar. Podés distribuir el grupo entre varias mesas o combinarlas.` : count === members.length * 4 ? 'Mesa completa. Elegí otra mesa o combiná mesas del mismo sector.' : unassigned.length ? 'Elegí un cliente con pago verificado para asignar sus lugares.' : pending ? `Hay ${pending} clientes pendientes de pago. Para ubicarlos, editá su estado en Clientes del evento cuando el equipo haya verificado el pago.` : 'Sin lugares confirmados pendientes de ubicación.';
+    $('newYearAssignMessage').textContent = state.assignmentMessage;
+    $('newYearAssignMessage').classList.toggle('hidden', !state.assignmentMessage);
+    $('newYearAssignMessage').classList.toggle('form-message--error', state.assignmentError);
     $('newYearOccupants').replaceChildren();
     for (const occupant of state.bookings) {
       const places = (occupant.placements || []).filter((placement) => members.includes(placement.tableId)).reduce((sum, placement) => sum + placement.count, 0);
@@ -357,6 +386,7 @@ export function createNewYearController({ db, functions, notify, onExpire }) {
         locations.appendChild(actionButton(`${groupLabel(members)} · ${count} lugares`, () => {
           state.mergeMode = false;
           state.picked.clear();
+          state.assignmentMessage = '';
           state.selectedTable = members[0];
           render();
           $('newYearFloorTitle').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
@@ -378,13 +408,12 @@ export function createNewYearController({ db, functions, notify, onExpire }) {
       summary.textContent = 'Menú, alergias, pago y observaciones';
       details.appendChild(summary);
       const lines = [
-        `${booking.adults} adultos · ${booking.children} menores · ${booking.veggieCount || 0} opciones veggie.`,
-        `Bebidas elegidas: ${booking.drinksA || 0} personas con opción A y ${booking.drinksB || 0} con opción B.`,
+        `${booking.adults} adultos · ${booking.children} menores.`,
+        ...bookingCourses(booking).map((course, index) => `Persona ${index + 1}: ${courseLabel(course)}.`),
         `Alergias informadas: ${booking.allergies || 'Sin información registrada.'}`,
         `Observaciones: ${booking.notes || 'Sin observaciones.'}`
       ];
       if (booking.paymentAmount !== null && booking.paymentAmount !== undefined) lines.push(`Importe registrado: ${booking.paymentCurrency} ${booking.paymentAmount}.`);
-      if (booking.paymentReference) lines.push(`Referencia del pago: ${booking.paymentReference}`);
       if (booking.paymentVerifiedAt) lines.push(`Pago verificado por ${booking.paymentVerifiedByName || 'el equipo'} el ${dateLabel(booking.paymentVerifiedAt)}.`);
       if (booking.status === 'cancelled' && booking.paymentStatus === 'paid') lines.push('Tiene un pago registrado.');
       lines.push(`Último cambio por ${booking.updatedByName || 'el equipo'} el ${dateLabel(booking.updatedAt)}.`);
@@ -429,6 +458,63 @@ export function createNewYearController({ db, functions, notify, onExpire }) {
     renderFloor();
     renderAssignment();
     renderBookings();
+    renderKitchen();
+  }
+
+  function renderKitchen() {
+    const scope = $('newYearKitchenScope').value;
+    const bookings = state.bookings.filter((booking) => scope === 'active' ? booking.status === 'paid' || booking.status === 'pending' : booking.status === scope);
+    const counts = new Map(MAIN_COURSES.map(([id]) => [id, 0]));
+    let missing = 0;
+    for (const booking of bookings) for (const course of bookingCourses(booking)) {
+      if (counts.has(course)) counts.set(course, counts.get(course) + 1);
+      else missing += 1;
+    }
+    const portions = [...counts.values()].reduce((sum, count) => sum + count, 0);
+    const scopeLabel = $('newYearKitchenScope').selectedOptions[0].textContent;
+    $('newYearKitchenSummary').textContent = `${scopeLabel}: ${portions} platos elegidos · ${missing} personas con plato por confirmar. Las reservas canceladas quedan excluidas.`;
+    const maximum = Math.max(1, ...counts.values());
+    $('newYearKitchenChart').replaceChildren();
+    for (const [id, label] of [...MAIN_COURSES].sort((a, b) => counts.get(b[0]) - counts.get(a[0]))) {
+      const row = document.createElement('div');
+      row.className = 'new-year-dish-row';
+      row.dataset.course = id;
+      const name = document.createElement('span');
+      name.textContent = label;
+      const track = document.createElement('div');
+      track.className = 'new-year-dish-track';
+      track.setAttribute('aria-hidden', 'true');
+      const bar = document.createElement('div');
+      bar.className = 'new-year-dish-bar';
+      bar.style.width = `${counts.get(id) / maximum * 100}%`;
+      track.appendChild(bar);
+      const count = document.createElement('strong');
+      count.textContent = counts.get(id);
+      row.append(name, track, count);
+      $('newYearKitchenChart').appendChild(row);
+    }
+  }
+
+  function renderMealFields() {
+    const people = Math.min(MAX_CAPACITY, Math.max(0, (Number($('nyAdults').value) || 0) + (Number($('nyChildren').value) || 0)));
+    const container = $('nyMainCourses');
+    while (container.children.length > people) container.lastElementChild.remove();
+    for (let index = 0; index < people; index += 1) {
+      if (container.children[index]) continue;
+      const label = document.createElement('label');
+      label.className = 'field';
+      const name = document.createElement('span');
+      name.textContent = `Persona ${index + 1}`;
+      const select = document.createElement('select');
+      select.dataset.person = index;
+      select.setAttribute('aria-label', `Plato principal · Persona ${index + 1}`);
+      select.add(new Option('Por confirmar', ''));
+      MAIN_COURSES.forEach(([id, title]) => select.add(new Option(title, id)));
+      select.value = state.mealDraft[index] || '';
+      select.addEventListener('change', () => { state.mealDraft[index] = select.value; });
+      label.append(name, select);
+      container.appendChild(label);
+    }
   }
 
   function openBooking(booking = null, atTable = null) {
@@ -442,10 +528,12 @@ export function createNewYearController({ db, functions, notify, onExpire }) {
     $('newYearBookingTitle').textContent = booking ? 'Editar cliente' : 'Nuevo cliente';
     const fields = {
       nyName: 'name', nyContact: 'contact', nyAdults: 'adults', nyChildren: 'children', nyStatus: 'status',
-      nyPaymentAmount: 'paymentAmount', nyPaymentCurrency: 'paymentCurrency', nyPaymentReference: 'paymentReference',
-      nyVeggieCount: 'veggieCount', nyDrinksA: 'drinksA', nyDrinksB: 'drinksB', nyAllergies: 'allergies', nyNotes: 'notes'
+      nyPaymentAmount: 'paymentAmount', nyPaymentCurrency: 'paymentCurrency', nyAllergies: 'allergies', nyNotes: 'notes'
     };
     if (booking) Object.entries(fields).forEach(([id, key]) => { $(id).value = booking[key] ?? ''; });
+    state.mealDraft = booking ? bookingCourses(booking) : [];
+    $('nyMainCourses').replaceChildren();
+    renderMealFields();
     $('newYearFormError').classList.add('hidden');
     $('newYearDialogPlacement').classList.toggle('hidden', atTable === null);
     $('newYearDialogPlacement').textContent = atTable === null ? '' : `Al marcar Pagado, los lugares se asignarán a ${groupLabel(groupFor(atTable)).toLowerCase()}. Los clientes pendientes quedan en seguimiento.`;
@@ -469,8 +557,8 @@ export function createNewYearController({ db, functions, notify, onExpire }) {
         name: $('nyName').value.trim(), contact: $('nyContact').value.trim(), adults: Number($('nyAdults').value),
         children: Number($('nyChildren').value), status: $('nyStatus').value,
         paymentAmount: $('nyPaymentAmount').value === '' ? null : Number($('nyPaymentAmount').value),
-        paymentCurrency: $('nyPaymentCurrency').value, paymentReference: $('nyPaymentReference').value.trim(),
-        veggieCount: Number($('nyVeggieCount').value), drinksA: Number($('nyDrinksA').value), drinksB: Number($('nyDrinksB').value),
+        paymentCurrency: $('nyPaymentCurrency').value,
+        mainCourses: [...$('nyMainCourses').querySelectorAll('select')].map((select) => select.value),
         allergies: $('nyAllergies').value.trim(), notes: $('nyNotes').value.trim()
       }
     };
@@ -492,11 +580,54 @@ export function createNewYearController({ db, functions, notify, onExpire }) {
     }
   });
   $('newYearSearch').addEventListener('input', () => { state.search = $('newYearSearch').value; renderFloor(); renderBookings(); });
-  $('newYearTable').addEventListener('change', () => { state.selectedTable = Number($('newYearTable').value); render(); });
-  $('newYearAssignBooking').addEventListener('change', () => { state.selectedBooking = $('newYearAssignBooking').value; renderAssignment(); });
-  $('newYearAssign').addEventListener('click', () => {
+  $('nyAdults').addEventListener('input', renderMealFields);
+  $('nyChildren').addEventListener('input', renderMealFields);
+  $('newYearKitchenScope').addEventListener('change', renderKitchen);
+  $('newYearTable').addEventListener('change', () => { state.assignmentMessage = ''; state.selectedTable = Number($('newYearTable').value); render(); });
+  $('newYearAssignBooking').addEventListener('change', () => {
+    state.assignmentMessage = '';
+    state.selectedBooking = $('newYearAssignBooking').value;
     const booking = state.bookings.find((item) => item.id === state.selectedBooking);
-    if (booking) perform('assign', { bookingId: booking.id, tableId: state.selectedTable, count: Number($('newYearAssignCount').value) }, booking);
+    $('newYearAssignCount').value = booking ? booking.peopleCount - assignedPlaces(booking) : 1;
+    renderAssignment();
+  });
+  $('newYearAssignCount').addEventListener('input', () => { state.assignmentMessage = ''; renderAssignment(); });
+  $('newYearAssign').addEventListener('click', async () => {
+    const booking = state.bookings.find((item) => item.id === state.selectedBooking);
+    if (!booking || state.busy) return;
+    const count = Number($('newYearAssignCount').value);
+    const members = groupFor(state.selectedTable);
+    const free = members.length * 4 - groupOccupancy(members);
+    const remaining = booking.peopleCount - assignedPlaces(booking);
+    state.assignmentError = true;
+    if (!Number.isInteger(count) || count < 1 || count > remaining) {
+      state.assignmentMessage = `Ingresá una cantidad entera entre 1 y ${remaining}.`;
+      renderAssignment();
+      return;
+    }
+    if (count > free) {
+      state.assignmentMessage = `Quedan ${free} lugares libres y querés asignar ${count}. Combiná mesas o asigná parte del grupo y ubicá el resto en otra mesa.`;
+      renderAssignment();
+      return;
+    }
+    state.assigning = true;
+    state.assignmentError = false;
+    state.assignmentMessage = 'Asignando lugares…';
+    const generation = state.generation;
+    try {
+      const result = await mutate('assign', { bookingId: booking.id, tableId: state.selectedTable, count }, booking);
+      if (result && generation === state.generation) state.assignmentMessage = `${count} lugares asignados a ${booking.name}.`;
+    } catch (error) {
+      if (generation === state.generation) {
+        state.assignmentError = true;
+        state.assignmentMessage = error.message || 'No se pudo asignar. Volvé a intentar.';
+      }
+    } finally {
+      if (generation === state.generation) {
+        state.assigning = false;
+        renderAssignment();
+      }
+    }
   });
   $('newYearMergeMode').addEventListener('click', () => {
     state.mergeMode = !state.mergeMode;
@@ -529,12 +660,14 @@ export function createNewYearController({ db, functions, notify, onExpire }) {
   });
   $('newYearRetry').addEventListener('click', subscribe);
   $('newYearExport').addEventListener('click', () => {
-    const header = ['Titular', 'Contacto', 'Adultos', 'Menores', 'Lugares', 'Estado', 'Estado del pago', 'Importe', 'Moneda', 'Referencia', 'Mesas y lugares', 'Llegó', 'Veggie', 'Opción A', 'Opción B', 'Alergias', 'Observaciones', 'Pago verificado por', 'Verificado el', 'Actualizado por'];
+    const header = ['Titular', 'Contacto', 'Adultos', 'Menores', 'Lugares', 'Estado', 'Estado del pago', 'Importe', 'Moneda', 'Mesas y lugares', 'Llegó', 'Plato por persona', ...MAIN_COURSES.map(([, label]) => label), 'Platos por confirmar', 'Alergias', 'Observaciones', 'Pago verificado por', 'Verificado el', 'Actualizado por'];
     const rows = state.bookings.map((booking) => [
       booking.name, booking.contact, booking.adults, booking.children, booking.peopleCount, STATUS_LABELS[booking.status],
-      booking.paymentStatus === 'paid' ? 'Pagado' : 'Pendiente', booking.paymentAmount, booking.paymentCurrency, booking.paymentReference,
+      booking.paymentStatus === 'paid' ? 'Pagado' : 'Pendiente', booking.paymentAmount, booking.paymentCurrency,
       (booking.placements || []).map((placement) => `${placement.tableId}: ${placement.count}`).join(' / '), booking.arrived ? 'Sí' : 'No',
-      booking.veggieCount, booking.drinksA, booking.drinksB, booking.allergies, booking.notes, booking.paymentVerifiedByName,
+      bookingCourses(booking).map((course, index) => `Persona ${index + 1}: ${courseLabel(course)}`).join(' / '),
+      ...MAIN_COURSES.map(([id]) => bookingCourses(booking).filter((course) => course === id).length),
+      bookingCourses(booking).filter((course) => !course).length, booking.allergies, booking.notes, booking.paymentVerifiedByName,
       dateLabel(booking.paymentVerifiedAt), booking.updatedByName
     ]);
     const csv = '\uFEFF' + [header, ...rows].map((row) => row.map(csvCell).join(';')).join('\r\n');
@@ -566,9 +699,21 @@ export function createNewYearController({ db, functions, notify, onExpire }) {
       state.editing = null;
       state.selectedTable = 41;
       state.selectedBooking = '';
+      state.assignmentMessage = '';
+      state.assignmentError = false;
+      state.assigning = false;
+      state.mealDraft = [];
       $('newYearSearch').value = '';
       $('newYearBookings').replaceChildren();
       $('newYearOccupants').replaceChildren();
+      $('nyMainCourses').replaceChildren();
+      $('newYearKitchenChart').replaceChildren();
+      $('newYearKitchenSummary').textContent = '';
+      $('newYearKitchenScope').value = 'paid';
+      $('newYearAssignMessage').textContent = '';
+      $('newYearAssignMessage').classList.add('hidden');
+      $('newYearTable').replaceChildren();
+      $('newYearAssignBooking').replaceChildren();
       $('newYearBookingForm').reset();
       if (dialog.open) dialog.close();
       message();

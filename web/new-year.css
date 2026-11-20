@@ -280,7 +280,7 @@
 .new-year-dialog {
   width: min(760px, calc(100% - 2rem));
   max-height: calc(100dvh - 2rem);
-  padding: 0;
+  padding: 1.25rem;
   overflow-y: auto;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
@@ -296,6 +296,33 @@
   color: var(--muted);
   line-height: 1.5;
 }
+
+.new-year-seat-panel > .form-message,
+.new-year-seat-panel > .panel-copy {
+  grid-column: 1 / -1;
+}
+
+.new-year-meals {
+  min-width: 0;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.new-year-meals legend { padding: 0 0.4rem; color: var(--gold); font-weight: 700; }
+.new-year-meal-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+.new-year-meal-fields select { width: 100%; min-width: 0; }
+.new-year-kitchen .panel-header { gap: 1.5rem; flex-wrap: wrap; align-items: end; }
+.new-year-kitchen { margin-top: 1rem; }
+.new-year-kitchen > .panel-copy { margin: 1.25rem 1.25rem 0; }
+.new-year-kitchen .field { min-width: min(100%, 230px); }
+.new-year-dish-chart { display: grid; gap: 1.2rem; margin: 1.5rem 1.25rem 1.25rem; }
+.new-year-dish-row { display: grid; grid-template-columns: minmax(160px, 270px) minmax(0, 1fr) 3ch; align-items: center; gap: 1rem; }
+.new-year-dish-row > span { font-size: 0.95rem; }
+.new-year-dish-row > strong { text-align: right; color: var(--gold-bright); font-variant-numeric: tabular-nums; }
+.new-year-dish-track { height: 20px; overflow: hidden; border-radius: 5px; background: rgba(255, 255, 255, 0.06); }
+.new-year-dish-bar { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--gold), var(--gold-bright)); }
 
 .new-year-mobile-floor {
   display: none;
@@ -345,6 +372,10 @@
 @media (max-width: 480px) {
   .new-year-seat-panel { grid-template-columns: minmax(0, 1fr); }
   .new-year-capacity { width: 100%; }
+  .new-year-meal-fields { grid-template-columns: minmax(0, 1fr); }
+  .new-year-dish-row { grid-template-columns: minmax(0, 1fr) 3ch; gap: 0.5rem; }
+  .new-year-dish-row > span { grid-column: 1 / -1; }
+  .new-year-kitchen .field { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

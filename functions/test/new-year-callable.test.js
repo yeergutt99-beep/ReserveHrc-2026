@@ -75,6 +75,18 @@ test('reintentar una misma solicitud no duplica la reserva ni el contador', asyn
   assert.equal(records.get(eventPath).revision, 1);
 });
 
+test('los platos por persona se guardan en la transacción y una elección inválida no cambia el cliente', async (t) => {
+  const { call, records } = setup(t);
+  const payload = createPayload('meals', { mainCourses: ['bondiola', 'ojo-de-bife'] });
+  await call(payload);
+  const bookingPath = `${eventPath}/bookings/meals`;
+  const before = structuredClone(records.get(bookingPath));
+  assert.deepEqual(before.mainCourses, ['bondiola', 'ojo-de-bife']);
+  await assert.rejects(call({ ...payload, expectedVersion: 1, requestId: 'invalid-meals', fields: { ...payload.fields, mainCourses: ['otro', 'peceto'] } }), { code: 'invalid-argument' });
+  assert.deepEqual(records.get(bookingPath), before);
+  assert.equal(records.get(eventPath).revision, 1);
+});
+
 test('una edición con versión anterior se rechaza sin cambios parciales', async (t) => {
   const { call, records } = setup(t);
   await call(createPayload('one'));
