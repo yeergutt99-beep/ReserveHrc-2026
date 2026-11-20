@@ -14,8 +14,7 @@ const now = new Date('2026-11-18T20:00:00Z');
 function fields(overrides = {}) {
   return {
     name: 'Cliente de prueba', contact: 'cliente@example.com', adults: 2, children: 0, status: 'pending',
-    paymentAmount: null, paymentCurrency: 'USD', paymentReference: '', veggieCount: 0,
-    drinksA: 0, drinksB: 0, allergies: '', notes: '', ...overrides
+    paymentAmount: null, paymentCurrency: 'USD', allergies: '', notes: '', ...overrides
   };
 }
 
@@ -99,13 +98,14 @@ test('liberar una ubicación conserva el pago y habilita una nueva asignación',
 });
 
 test('cancelar libera cupo y ubicación y conserva el registro del pago', () => {
-  const paid = save(createNewYearEvent('hrc'), null, { status: 'paid', paymentAmount: 250, paymentReference: 'REF-1' }, { tableId: 11 });
+  const paid = save(createNewYearEvent('hrc'), null, { status: 'paid', paymentAmount: 250 }, { tableId: 11 });
+  paid.booking.paymentReference = 'Referencia histórica';
   const cancelled = changeNewYearBooking(paid.event, paid.booking, 'setStatus', { status: 'cancelled' }, actor, now);
   assert.equal(cancelled.event.paidPeople, 0);
   assert.equal(cancelled.event.tableOccupancy[11], 0);
   assert.equal(cancelled.booking.paymentStatus, 'paid');
   assert.equal(cancelled.booking.paymentAmount, 250);
-  assert.equal(cancelled.booking.paymentReference, 'REF-1');
+  assert.equal(cancelled.booking.paymentReference, 'Referencia histórica');
 });
 
 test('editar un cliente preserva autor y fecha de creación y protege asientos ya asignados', () => {
@@ -119,13 +119,57 @@ test('editar un cliente preserva autor y fecha de creación y protege asientos y
   assert.throws(() => save(first.event, first.booking, { status: 'paid', adults: 1 }), /Liberá los lugares/);
 });
 
-test('los datos y las preferencias de bebidas se validan al crear y editar', () => {
+test('los datos y los platos por persona se validan al crear y editar', () => {
   const event = createNewYearEvent('hrc');
-  for (const invalid of [{ adults: 0 }, { adults: -1 }, { adults: 1.5 }, { name: ' ' }, { drinksA: 2, drinksB: 1 }, { allergies: 'x'.repeat(1001) }, { paymentAmount: -1 }]) {
+  for (const invalid of [{ adults: 0 }, { adults: -1 }, { adults: 1.5 }, { name: ' ' }, { mainCourses: ['bondiola', 'peceto', 'ojo-de-bife'] }, { mainCourses: ['otro'] }, { mainCourses: [null] }, { mainCourses: 'bondiola' }, { allergies: 'x'.repeat(1001) }, { paymentAmount: -1 }]) {
     assert.throws(() => save(event, null, invalid));
   }
   const first = save(event, null);
-  assert.throws(() => save(first.event, first.booking, { drinksA: 2, drinksB: 1 }));
+  assert.throws(() => save(first.event, first.booking, { mainCourses: ['otro'] }));
+});
+
+test('guarda los cinco platos por persona y completa elecciones pendientes sin inventar platos', () => {
+  const courses = ['bondiola', 'peceto', 'ojo-de-bife', 'lasana-berenjenas', 'canelones-verdura'];
+  const saved = save(createNewYearEvent('hrc'), null, { adults: 5, mainCourses: courses });
+  assert.deepEqual(saved.booking.mainCourses, courses);
+  const updated = save(saved.event, saved.booking, { adults: 6 });
+  assert.deepEqual(updated.booking.mainCourses, [...courses, '']);
+  assert.deepEqual(save(createNewYearEvent('hrc'), null).booking.mainCourses, ['', '']);
+});
+
+test('los registros anteriores sin platos se pueden editar, pagar y ubicar sin perder datos históricos', () => {
+  const legacy = save(createNewYearEvent('hrc'), null);
+  delete legacy.booking.mainCourses;
+  legacy.booking.paymentReference = 'Referencia histórica';
+  legacy.booking.drinksA = 2;
+  const updated = save(legacy.event, legacy.booking, { status: 'paid' }, {});
+  assert.deepEqual(updated.booking.mainCourses, ['', '']);
+  assert.equal(updated.booking.paymentReference, 'Referencia histórica');
+  assert.equal(updated.booking.drinksA, 2);
+  const assigned = changeNewYearBooking(updated.event, updated.booking, 'assign', { tableId: 25, count: 2 }, actor, now);
+  assert.equal(assigned.event.tableOccupancy[25], 2);
+  assert.deepEqual(assigned.booking.mainCourses, ['', '']);
+});
+
+test('dos personas en una mesa de cuatro rechazan tres más y permiten asignar dos y repartir el resto', () => {
+  const first = save(createNewYearEvent('hrc'), null, { status: 'paid' }, { tableId: 25 });
+  const second = save(first.event, null, { adults: 3, status: 'paid' });
+  const before = structuredClone(second);
+  assert.throws(() => changeNewYearBooking(second.event, second.booking, 'assign', { tableId: 25, count: 3 }, actor, now), /quedan 2/);
+  assert.deepEqual(second, before);
+  const split = changeNewYearBooking(second.event, second.booking, 'assign', { tableId: 25, count: 2 }, actor, now);
+  const rest = changeNewYearBooking(split.event, split.booking, 'assign', { tableId: 26, count: 1 }, actor, now);
+  assert.equal(rest.event.tableOccupancy[25], 4);
+  assert.equal(rest.event.tableOccupancy[26], 1);
+});
+
+test('nueve personas requieren más que una combinación de ocho y pueden distribuirse sin exceder capacidades', () => {
+  const combined = changeNewYearConfiguration(createNewYearEvent('hrc'), 'combine', { tableIds: [51, 52] }, actor);
+  const saved = save(combined, null, { adults: 9, status: 'paid' });
+  assert.throws(() => changeNewYearBooking(saved.event, saved.booking, 'assign', { tableId: 51, count: 9 }, actor, now), /quedan 8/);
+  const eight = changeNewYearBooking(saved.event, saved.booking, 'assign', { tableId: 51, count: 8 }, actor, now);
+  const one = changeNewYearBooking(eight.event, eight.booking, 'assign', { tableId: 53, count: 1 }, actor, now);
+  assert.deepEqual(one.booking.placements, [{tableId:51,count:4},{tableId:52,count:4},{tableId:53,count:1}]);
 });
 
 test('solo un administrador modifica el tope y nunca por debajo de lo pagado', () => {

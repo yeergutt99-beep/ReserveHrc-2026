@@ -11,6 +11,7 @@ const TABLE_IDS = [
 ];
 const MERGE_FAMILIES = [[50, 51, 52, 53, 54], [60, 61, 62, 63, 64], [11, 21, 31, 41]];
 const MAX_CAPACITY = TABLE_IDS.length * 4;
+const MAIN_COURSE_IDS = ['bondiola', 'peceto', 'ojo-de-bife', 'lasana-berenjenas', 'canelones-verdura'];
 
 class NewYearError extends Error {
   constructor(code, message) {
@@ -59,17 +60,20 @@ function bookingPeople(booking, status) {
   return booking?.status === status ? booking.peopleCount : 0;
 }
 
-function sanitizeBooking(fields) {
+function sanitizeBooking(fields, previous) {
   requireCondition(fields && typeof fields === 'object', 'Faltan los datos del cliente.');
   const adults = integer(fields.adults, 'Adultos');
   const children = integer(fields.children, 'Menores');
   const peopleCount = adults + children;
   requireCondition(peopleCount >= 1 && peopleCount <= MAX_CAPACITY, `La reserva debe tener entre 1 y ${MAX_CAPACITY} personas.`);
   requireCondition(['pending', 'paid', 'cancelled'].includes(fields.status), 'El estado del cliente no es válido.');
-  const veggieCount = integer(fields.veggieCount ?? 0, 'Opciones veggie', peopleCount);
-  const drinksA = integer(fields.drinksA ?? 0, 'Personas con opción A', peopleCount);
-  const drinksB = integer(fields.drinksB ?? 0, 'Personas con opción B', peopleCount);
-  requireCondition(drinksA + drinksB <= peopleCount, 'Cada persona puede tener una sola opción de bebidas.');
+  const courses = fields.mainCourses === undefined ? (previous?.mainCourses || []).slice(0, peopleCount) : fields.mainCourses;
+  requireCondition(Array.isArray(courses) && courses.length <= peopleCount, 'Indicá como máximo un plato principal por persona.');
+  const mainCourses = Array.from({ length: peopleCount }, (_, index) => {
+    const course = index < courses.length ? courses[index] : '';
+    requireCondition(course === '' || MAIN_COURSE_IDS.includes(course), 'El plato principal seleccionado no es válido.');
+    return course;
+  });
   const paymentAmount = fields.paymentAmount ?? null;
   requireCondition(paymentAmount === null || (Number.isFinite(paymentAmount) && paymentAmount >= 0 && paymentAmount <= 1e12), 'El importe recibido no es válido.');
   requireCondition(['USD', 'ARS', 'EUR', 'BRL'].includes(fields.paymentCurrency), 'La moneda del pago no es válida.');
@@ -82,10 +86,7 @@ function sanitizeBooking(fields) {
     status: fields.status,
     paymentAmount,
     paymentCurrency: fields.paymentCurrency,
-    paymentReference: text(fields.paymentReference, 'Referencia del pago', 200),
-    veggieCount,
-    drinksA,
-    drinksB,
+    mainCourses,
     allergies: text(fields.allergies, 'Alergias', 1000),
     notes: text(fields.notes, 'Observaciones', 2000)
   };
@@ -98,7 +99,7 @@ function assignPlaces(event, booking, tableId, count) {
   requireCondition(count > 0 && count <= booking.peopleCount - assigned, 'La cantidad supera los lugares del cliente pendientes de ubicación.');
   const members = tableGroup(event, tableId);
   const available = members.reduce((sum, id) => sum + 4 - (event.tableOccupancy[id] || 0), 0);
-  requireCondition(count <= available, 'La mesa no tiene suficientes lugares libres.', 'resource-exhausted');
+  requireCondition(count <= available, `La mesa no tiene suficientes lugares libres: quedan ${available} y querés asignar ${count}. Combiná mesas o distribuí el grupo en más de una mesa.`, 'resource-exhausted');
   const placements = booking.placements.map((placement) => ({ ...placement }));
   let remaining = count;
   for (const id of members) {
@@ -140,7 +141,7 @@ function changeNewYearBooking(event, previous, action, payload, actor, now) {
     placements: (previous?.placements || []).map((placement) => ({ ...placement }))
   };
   if (action === 'saveBooking') {
-    booking = { ...booking, ...sanitizeBooking(payload.fields) };
+    booking = { ...booking, ...sanitizeBooking(payload.fields, previous) };
   } else if (action === 'setStatus') {
     requireCondition(['pending', 'paid', 'cancelled'].includes(payload.status), 'El estado no es válido.');
     booking.status = payload.status;

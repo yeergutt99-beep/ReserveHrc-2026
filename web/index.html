@@ -13,7 +13,7 @@
       rel="stylesheet"
     >
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="new-year.css">
+    <link rel="stylesheet" href="new-year.css?v=20261120-panel">
   </head>
   <body>
     <div class="background-glow background-glow--red"></div>
@@ -480,6 +480,7 @@
                 <button id="newYearAssign" class="button button--primary" type="button">Asignar lugares</button>
                 <button id="newYearCreateAtTable" class="button button--secondary" type="button">Nuevo cliente en esta mesa</button>
                 <p id="newYearAssignHint" class="panel-copy"></p>
+                <p id="newYearAssignMessage" class="form-message hidden" role="status" aria-live="polite"></p>
                 <div id="newYearOccupants"></div>
               </aside>
             </div>
@@ -488,6 +489,14 @@
               <div class="panel-header"><div><h2 id="newYearClientsTitle">Clientes del evento</h2><p id="newYearResults" class="panel-copy" aria-live="polite"></p></div></div>
               <div id="newYearEmpty" class="state-box hidden"><h3>No hay clientes para mostrar</h3><p>Buscá otro nombre o cargá el primer cliente del evento.</p></div>
               <div id="newYearBookings"></div>
+            </section>
+            <section class="panel new-year-kitchen" aria-labelledby="newYearKitchenTitle">
+              <div class="panel-header">
+                <div><h2 id="newYearKitchenTitle">Platos principales · Cocina</h2><p class="panel-copy">Porciones elegidas en las reservas del evento.</p></div>
+                <label class="field"><span>Contar reservas</span><select id="newYearKitchenScope"><option value="paid">Pagadas</option><option value="pending">Pendientes de pago</option><option value="active">Todas las activas</option></select></label>
+              </div>
+              <p id="newYearKitchenSummary" class="panel-copy" aria-live="polite"></p>
+              <div id="newYearKitchenChart" class="new-year-dish-chart" aria-label="Cantidad de porciones por plato principal"></div>
             </section>
           </div>
         </section>
@@ -597,10 +606,7 @@
           <label class="field field--wide"><span>Estado</span><select id="nyStatus"><option value="pending">Pendiente de pago</option><option value="paid">Pagado y confirmado</option><option value="cancelled">Cancelado</option></select><small>Marcá Pagado cuando el equipo haya verificado el pago.</small></label>
           <label class="field"><span>Importe recibido</span><input id="nyPaymentAmount" type="number" min="0" step="0.01"></label>
           <label class="field"><span>Moneda</span><select id="nyPaymentCurrency"><option>USD</option><option>ARS</option><option>EUR</option><option>BRL</option></select></label>
-          <label class="field field--wide"><span>Referencia del pago o comprobante</span><input id="nyPaymentReference" type="text" maxlength="200"></label>
-          <label class="field"><span>Opciones veggie</span><input id="nyVeggieCount" type="number" min="0" max="176" value="0"></label>
-          <label class="field"><span>Opción A · bebidas sin alcohol</span><input id="nyDrinksA" type="number" min="0" max="176" value="0"></label>
-          <label class="field"><span>Opción B · tres pintas</span><input id="nyDrinksB" type="number" min="0" max="176" value="0"></label>
+          <fieldset class="new-year-meals field--wide"><legend>Plato principal de cada persona</legend><p class="panel-copy">Elegí un plato por persona. Podés dejarlo por confirmar y completarlo después.</p><div id="nyMainCourses" class="new-year-meal-fields"></div></fieldset>
           <label class="field field--wide"><span>Alergias y restricciones alimentarias</span><textarea id="nyAllergies" rows="3" maxlength="1000" placeholder="Indicá a qué persona corresponde cada necesidad."></textarea></label>
           <label class="field field--wide"><span>Observaciones</span><textarea id="nyNotes" rows="3" maxlength="2000"></textarea></label>
         </div>
@@ -612,6 +618,6 @@
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <script type="module" src="main.js?v=20261119-new-year"></script>
+    <script type="module" src="main.js?v=20261120-panel"></script>
   </body>
 </html>

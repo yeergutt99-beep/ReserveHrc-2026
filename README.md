@@ -34,6 +34,15 @@ reducirlo. Los pendientes no descuentan cupo y la cancelación conserva el pago
 registrado. El 2 de enero de 2027 a las 00:00 de Ushuaia se oculta la pestaña y se
 cierran las modificaciones. Los registros permanecen guardados para el equipo.
 
+Cada persona tiene un `mainCourses` por posición en su reserva: `bondiola`,
+`peceto`, `ojo-de-bife`, `lasana-berenjenas` o `canelones-verdura`. El valor vacío
+significa plato por confirmar; los clientes anteriores aparecen así hasta que el
+equipo cargue su elección. No se solicitan bebidas ni comprobantes. El gráfico de
+cocina cuenta pagados por defecto, permite ver pendientes o todas las reservas
+activas y excluye cancelados. La búsqueda de clientes no altera esos totales.
+Solo los clientes pagados pueden recibir lugares. Los grupos se pueden distribuir
+en varias mesas; cada mesa física conserva el límite de cuatro personas.
+
 ## Modelo de reserva
 
 ```json

@@ -21,7 +21,7 @@ import {
   where
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
-import { createNewYearController } from './new-year.js';
+import { createNewYearController } from './new-year.js?v=20261120-panel';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyAtyahCY20oeKmsLcCqf7bZR3WznrdZdOY',
