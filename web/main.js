@@ -21,6 +21,7 @@ import {
   where
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
+import { createNewYearController } from './new-year.js';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyAtyahCY20oeKmsLcCqf7bZR3WznrdZdOY',
@@ -70,6 +71,15 @@ const showForm = $('showForm');
 const reservationModal = $('reservationModal');
 const showModal = $('showModal');
 const deleteModal = $('deleteModal');
+const newYearController = createNewYearController({
+  db,
+  functions,
+  notify: showToast,
+  onExpire: () => {
+    switchView('reservations');
+    showToast('La gestión de Año Nuevo finalizó el 2 de enero de 2027.');
+  }
+});
 
 const DEFAULT_INFORMATION = {
   exchangeRates: { USD: 1500, EUR: 1700, BRL: 290, updatedAt: '2026-07-21' },
@@ -202,7 +212,8 @@ function showToast(message, type = 'success') {
 }
 
 function switchView(viewName) {
-  if (!['reservations', 'conversations', 'information'].includes(viewName)) return;
+  if (!['reservations', 'conversations', 'information', 'new-year'].includes(viewName)) return;
+  if (viewName === 'new-year' && !newYearController.available()) return;
   state.activeView = viewName;
   document.querySelectorAll('.primary-nav [data-view]').forEach((button) => {
     button.classList.toggle('nav-tab--active', button.dataset.view === viewName);
@@ -210,6 +221,8 @@ function switchView(viewName) {
   $('reservationsView').classList.toggle('hidden', viewName !== 'reservations');
   $('conversationsView').classList.toggle('hidden', viewName !== 'conversations');
   $('informationView').classList.toggle('hidden', viewName !== 'information');
+  $('newYearView').classList.toggle('hidden', viewName !== 'new-year');
+  newYearController.setActive(viewName === 'new-year');
 
   if (viewName === 'conversations' && !state.unsubscribeConversations) {
     subscribeToConversations();
@@ -1326,6 +1339,7 @@ document.addEventListener('keydown', (event) => {
 });
 
 function unsubscribeAll() {
+  newYearController.setUser(null);
   [
     'unsubscribeReservations',
     'unsubscribeShows',
@@ -1360,6 +1374,7 @@ onAuthStateChanged(auth, async (user) => {
     const metaSnapshot = await getDoc(doc(db, `users/${user.uid}`));
     if (!metaSnapshot.exists()) throw new Error('Tu usuario no tiene una empresa asignada.');
     state.userMeta = metaSnapshot.data();
+    newYearController.setUser(state.userMeta);
     $('userName').textContent = state.userMeta.displayName || user.displayName || user.email;
     $('userRole').textContent = state.userMeta.role === 'admin' ? 'Administrador' : 'Equipo';
     $('adminSection').classList.toggle('hidden', state.userMeta.role !== 'admin');

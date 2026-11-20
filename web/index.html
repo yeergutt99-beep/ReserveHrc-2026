@@ -13,6 +13,7 @@
       rel="stylesheet"
     >
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="new-year.css">
   </head>
   <body>
     <div class="background-glow background-glow--red"></div>
@@ -76,6 +77,9 @@
         </button>
         <button class="nav-tab" type="button" data-view="information">
           <span aria-hidden="true">i</span> Información
+        </button>
+        <button id="newYearNav" class="nav-tab hidden" type="button" data-view="new-year">
+          <span aria-hidden="true">✦</span> Año Nuevo
         </button>
       </nav>
 
@@ -407,6 +411,86 @@
             </section>
           </form>
         </section>
+        <section id="newYearView" class="app-page hidden" aria-labelledby="newYearTitle">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">31 de diciembre de 2026</p>
+              <h1 id="newYearTitle">Año Nuevo</h1>
+              <p class="page-copy">Clientes, pagos y distribución de lugares del evento.</p>
+            </div>
+            <div class="new-year-actions">
+              <button id="newYearExport" class="button button--secondary" type="button" disabled>Exportar clientes</button>
+              <button id="newYearNewBooking" class="button button--primary" type="button" disabled>＋ Nuevo cliente</button>
+            </div>
+          </div>
+
+          <div class="stats-grid" aria-label="Cubiertos del evento" aria-live="polite">
+            <article class="stat-card"><span class="stat-label">Confirmados</span><strong id="newYearPaid" class="stat-value">—</strong><span class="stat-detail">lugares con pago verificado</span></article>
+            <article class="stat-card"><span class="stat-label">Pendientes</span><strong id="newYearPending" class="stat-value">—</strong><span class="stat-detail">lugares en seguimiento</span></article>
+            <article class="stat-card"><span class="stat-label">Disponibles</span><strong id="newYearAvailable" class="stat-value">—</strong><span id="newYearCapacityLabel" class="stat-detail">cupo del evento</span></article>
+          </div>
+
+          <div class="new-year-toolbar">
+            <label class="search-field">
+              <span aria-hidden="true">⌕</span>
+              <input id="newYearSearch" type="search" aria-label="Buscar cliente de Año Nuevo" placeholder="Buscar por nombre o contacto">
+            </label>
+            <form id="newYearCapacityForm" class="new-year-capacity hidden">
+              <label for="newYearCapacity">Tope de cubiertos</label>
+              <input id="newYearCapacity" type="number" min="1" max="176" required>
+              <button class="button button--secondary button--compact" type="submit">Guardar tope</button>
+            </form>
+          </div>
+          <p id="newYearMessage" class="form-message hidden" role="status" aria-live="polite"></p>
+          <div id="newYearLoading" class="state-box"><span class="spinner" aria-hidden="true"></span><p>Cargando Año Nuevo…</p></div>
+          <div id="newYearError" class="state-box hidden" role="alert"><p id="newYearErrorText"></p><button id="newYearRetry" class="button button--secondary" type="button">Volver a cargar</button></div>
+
+          <div id="newYearWorkspace" class="hidden">
+            <div class="new-year-layout">
+              <section class="panel new-year-floor-panel" aria-labelledby="newYearFloorTitle">
+                <div class="new-year-floor-heading">
+                  <div><h2 id="newYearFloorTitle">Plano del salón</h2><p id="newYearUnassigned" class="panel-copy"></p></div>
+                  <div class="new-year-actions">
+                    <button id="newYearMergeMode" class="button button--secondary button--compact" type="button" aria-pressed="false">Combinar mesas</button>
+                    <button id="newYearUnmerge" class="button button--secondary button--compact" type="button" disabled>Descombinar mesas</button>
+                  </div>
+                </div>
+                <div id="newYearMergePanel" class="new-year-merge-panel hidden">
+                  <p id="newYearMergeSelection" aria-live="polite"></p>
+                  <div class="new-year-actions">
+                    <button id="newYearConfirmMerge" class="button button--primary button--compact" type="button" disabled>Combinar mesas</button>
+                    <button id="newYearCancelMerge" class="button button--ghost button--compact" type="button">Cancelar</button>
+                  </div>
+                </div>
+                <div id="newYearFloor" class="new-year-floor" aria-label="Plano interactivo de las mesas">
+                  <div class="new-year-stage">Escenario</div>
+                  <div class="new-year-booth" style="top:0"></div><div class="new-year-booth" style="top:23%"></div><div class="new-year-booth" style="top:43%"></div><div class="new-year-booth" style="top:63%"></div>
+                  <div class="new-year-bar"></div><span class="new-year-bar-label">Barra · 109–119</span>
+                  <div id="newYearFloorLinks" aria-hidden="true"></div>
+                </div>
+                <div id="newYearMobileFloor" class="new-year-mobile-floor" aria-label="Mesas por sector"></div>
+                <div class="new-year-legend"><span><i></i>Libre</span><span><i class="is-partial"></i>Parcial</span><span><i class="is-full"></i>Completa</span><span><i class="is-combined"></i>Combinada</span></div>
+              </section>
+
+              <aside class="panel new-year-seat-panel" aria-label="Asignación de lugares">
+                <label class="field"><span>Mesa o combinación</span><select id="newYearTable"></select></label>
+                <div><h2 id="newYearSelectedTable"></h2><p id="newYearTableOccupancy" class="panel-copy" aria-live="polite"></p></div>
+                <label class="field"><span>Cliente con pago verificado</span><select id="newYearAssignBooking"></select></label>
+                <label class="field"><span>Lugares a asignar</span><input id="newYearAssignCount" type="number" min="1" value="1"></label>
+                <button id="newYearAssign" class="button button--primary" type="button">Asignar lugares</button>
+                <button id="newYearCreateAtTable" class="button button--secondary" type="button">Nuevo cliente en esta mesa</button>
+                <p id="newYearAssignHint" class="panel-copy"></p>
+                <div id="newYearOccupants"></div>
+              </aside>
+            </div>
+
+            <section class="panel new-year-clients" aria-labelledby="newYearClientsTitle">
+              <div class="panel-header"><div><h2 id="newYearClientsTitle">Clientes del evento</h2><p id="newYearResults" class="panel-copy" aria-live="polite"></p></div></div>
+              <div id="newYearEmpty" class="state-box hidden"><h3>No hay clientes para mostrar</h3><p>Buscá otro nombre o cargá el primer cliente del evento.</p></div>
+              <div id="newYearBookings"></div>
+            </section>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -499,8 +583,35 @@
       </section>
     </div>
 
+    <dialog id="newYearBookingDialog" class="new-year-dialog" aria-labelledby="newYearBookingTitle">
+      <header class="modal-header">
+        <div><p class="eyebrow">Año Nuevo · 31/12/2026</p><h2 id="newYearBookingTitle">Nuevo cliente</h2></div>
+        <button id="newYearCloseDialog" class="icon-button" type="button" aria-label="Cerrar formulario de Año Nuevo">×</button>
+      </header>
+      <form id="newYearBookingForm" class="reservation-form">
+        <div class="form-grid">
+          <label class="field field--wide"><span>Nombre del titular *</span><input id="nyName" type="text" maxlength="120" required></label>
+          <label class="field field--wide"><span>Teléfono o correo</span><input id="nyContact" type="text" maxlength="160"></label>
+          <label class="field"><span>Adultos</span><input id="nyAdults" type="number" min="0" max="176" value="1" required></label>
+          <label class="field"><span>Menores</span><input id="nyChildren" type="number" min="0" max="176" value="0" required></label>
+          <label class="field field--wide"><span>Estado</span><select id="nyStatus"><option value="pending">Pendiente de pago</option><option value="paid">Pagado y confirmado</option><option value="cancelled">Cancelado</option></select><small>Marcá Pagado cuando el equipo haya verificado el pago.</small></label>
+          <label class="field"><span>Importe recibido</span><input id="nyPaymentAmount" type="number" min="0" step="0.01"></label>
+          <label class="field"><span>Moneda</span><select id="nyPaymentCurrency"><option>USD</option><option>ARS</option><option>EUR</option><option>BRL</option></select></label>
+          <label class="field field--wide"><span>Referencia del pago o comprobante</span><input id="nyPaymentReference" type="text" maxlength="200"></label>
+          <label class="field"><span>Opciones veggie</span><input id="nyVeggieCount" type="number" min="0" max="176" value="0"></label>
+          <label class="field"><span>Opción A · bebidas sin alcohol</span><input id="nyDrinksA" type="number" min="0" max="176" value="0"></label>
+          <label class="field"><span>Opción B · tres pintas</span><input id="nyDrinksB" type="number" min="0" max="176" value="0"></label>
+          <label class="field field--wide"><span>Alergias y restricciones alimentarias</span><textarea id="nyAllergies" rows="3" maxlength="1000" placeholder="Indicá a qué persona corresponde cada necesidad."></textarea></label>
+          <label class="field field--wide"><span>Observaciones</span><textarea id="nyNotes" rows="3" maxlength="2000"></textarea></label>
+        </div>
+        <p id="newYearDialogPlacement" class="panel-copy hidden"></p>
+        <p id="newYearFormError" class="form-message form-message--error hidden" role="alert"></p>
+        <footer class="modal-actions"><button id="newYearCancelDialog" class="button button--ghost" type="button">Cancelar</button><button id="newYearSaveBooking" class="button button--primary" type="submit">Guardar cliente</button></footer>
+      </form>
+    </dialog>
+
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <script type="module" src="main.js"></script>
+    <script type="module" src="main.js?v=20261119-new-year"></script>
   </body>
 </html>

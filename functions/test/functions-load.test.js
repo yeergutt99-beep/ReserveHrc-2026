@@ -11,7 +11,8 @@ test('carga todas las Functions con Firebase Admin modular', () => {
     'sendHumanAlertEmail',
     'sendPendingHumanAlertReminders',
     'setSofiaEnabled',
-    'updateHumanAlertStatus'
+    'updateHumanAlertStatus',
+    'updateNewYearEvent'
   ];
 
   assert.deepEqual(Object.keys(functions).sort(), expected.sort());
